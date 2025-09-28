@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Dict
 from datetime import datetime
 
-from flask import Flask, render_template, request, send_file, redirect, url_for, flash
+from flask import Flask, render_template, request, send_file, redirect, url_for, flash, jsonify
 
 
 APP_NAME = "数据预处理器"
@@ -272,26 +272,19 @@ def upload_files():
     if request.method == "GET":
         return render_template("upload.html", app_name=APP_NAME)
 
-    # 设置响应头确保JSON格式
-    @app.after_request
-    def after_request(response):
-        if request.endpoint == 'upload_files' and request.method == 'POST':
-            response.headers['Content-Type'] = 'application/json; charset=utf-8'
-        return response
-
     try:
-        print(f"[DEBUG] 收到上传请求: {request.files.keys()}")
+        print(f"[DEBUG] 收到上传请求: {list(request.files.keys())}")
 
         if 'files' not in request.files:
-            return json.dumps({"ok": False, "message": "未选择文件"}, ensure_ascii=False), 400, {'Content-Type': 'application/json; charset=utf-8'}
+            return jsonify({"ok": False, "message": "未选择文件"}), 400
 
         files = request.files.getlist('files')
-        print(f"[DEBUG] 文件列表: {[f.filename for f in files]}")
+        print(f"[DEBUG] 文件列表: {[f.filename for f in files if f.filename]}")
 
-        if not files or files[0].filename == '':
-            return json.dumps({"ok": False, "message": "未选择文件"}, ensure_ascii=False), 400, {'Content-Type': 'application/json; charset=utf-8'}
+        if not files or all(f.filename == '' for f in files):
+            return jsonify({"ok": False, "message": "未选择有效文件"}), 400
 
-        # 创建临时上传目录 - Vercel使用/tmp
+        # 创建临时上传目录
         upload_dir = Path("/tmp/uploads")
         upload_dir.mkdir(parents=True, exist_ok=True)
         print(f"[DEBUG] 上传目录: {upload_dir}")
@@ -308,6 +301,9 @@ def upload_files():
                 file.save(str(file_path))
                 uploaded_files.append(safe_filename)
 
+        if not uploaded_files:
+            return jsonify({"ok": False, "message": "没有有效的Excel或CSV文件"}), 400
+
         response_data = {
             "ok": True,
             "message": f"成功上传 {len(uploaded_files)} 个文件",
@@ -316,16 +312,14 @@ def upload_files():
         }
 
         print(f"[DEBUG] 上传成功: {response_data}")
-        return json.dumps(response_data, ensure_ascii=False), 200, {'Content-Type': 'application/json; charset=utf-8'}
+        return jsonify(response_data)
 
     except Exception as exc:
         import traceback
         error_msg = f"上传失败: {str(exc)}"
         print(f"[ERROR] {error_msg}")
         print(f"[ERROR] 堆栈: {traceback.format_exc()}")
-
-        error_response = {"ok": False, "message": error_msg}
-        return json.dumps(error_response, ensure_ascii=False), 500, {'Content-Type': 'application/json; charset=utf-8'}
+        return jsonify({"ok": False, "message": error_msg}), 500
 
 
 @app.post("/download")
