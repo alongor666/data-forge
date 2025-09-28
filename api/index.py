@@ -171,22 +171,12 @@ def create_mock_preprocessor():
 
 
 def default_paths() -> Dict[str, str]:
-    # 云端部署时使用临时目录
-    if os.environ.get("VERCEL") or os.environ.get("TMPDIR"):
-        temp_dir = Path("/tmp/claude") if os.environ.get("TMPDIR") else Path("/tmp")
-        return {
-            "excel_dir": str(temp_dir / "uploads"),
-            "csv_dir": str(temp_dir / "converted"),
-            "output_dir": str(temp_dir / "output"),
-        }
-    else:
-        # 本地开发时的默认路径
-        root = Path(__file__).resolve().parent.parent
-        return {
-            "excel_dir": str(root / "数据转换" / "数据源"),
-            "csv_dir": str(root / "数据转换" / "转换后数据"),
-            "output_dir": str(root / "数据转换" / "car-insurance-dashboard" / "data"),
-        }
+    # 始终使用临时目录，适配云端部署
+    return {
+        "excel_dir": "/tmp/uploads",
+        "csv_dir": "/tmp/converted",
+        "output_dir": "/tmp/output",
+    }
 
 
 @app.route("/", methods=["GET"])
@@ -282,35 +272,60 @@ def upload_files():
     if request.method == "GET":
         return render_template("upload.html", app_name=APP_NAME)
 
+    # 设置响应头确保JSON格式
+    @app.after_request
+    def after_request(response):
+        if request.endpoint == 'upload_files' and request.method == 'POST':
+            response.headers['Content-Type'] = 'application/json; charset=utf-8'
+        return response
+
     try:
+        print(f"[DEBUG] 收到上传请求: {request.files.keys()}")
+
         if 'files' not in request.files:
-            return {"ok": False, "message": "未选择文件"}
+            return json.dumps({"ok": False, "message": "未选择文件"}, ensure_ascii=False), 400, {'Content-Type': 'application/json; charset=utf-8'}
 
         files = request.files.getlist('files')
-        if not files or files[0].filename == '':
-            return {"ok": False, "message": "未选择文件"}
+        print(f"[DEBUG] 文件列表: {[f.filename for f in files]}")
 
-        # 创建临时上传目录
-        upload_dir = Path("/tmp/claude/uploads") if os.environ.get("TMPDIR") else Path("uploads")
+        if not files or files[0].filename == '':
+            return json.dumps({"ok": False, "message": "未选择文件"}, ensure_ascii=False), 400, {'Content-Type': 'application/json; charset=utf-8'}
+
+        # 创建临时上传目录 - Vercel使用/tmp
+        upload_dir = Path("/tmp/uploads")
         upload_dir.mkdir(parents=True, exist_ok=True)
+        print(f"[DEBUG] 上传目录: {upload_dir}")
 
         uploaded_files = []
         for file in files:
             if file and file.filename and file.filename.endswith(('.xlsx', '.csv')):
                 filename = file.filename
-                file_path = upload_dir / filename
+                # 确保文件名安全
+                import re
+                safe_filename = re.sub(r'[^\w\-_\.\u4e00-\u9fff]', '_', filename)
+                file_path = upload_dir / safe_filename
+                print(f"[DEBUG] 保存文件: {safe_filename} -> {file_path}")
                 file.save(str(file_path))
-                uploaded_files.append(filename)
+                uploaded_files.append(safe_filename)
 
-        return {
+        response_data = {
             "ok": True,
             "message": f"成功上传 {len(uploaded_files)} 个文件",
             "files": uploaded_files,
             "upload_dir": str(upload_dir)
         }
 
+        print(f"[DEBUG] 上传成功: {response_data}")
+        return json.dumps(response_data, ensure_ascii=False), 200, {'Content-Type': 'application/json; charset=utf-8'}
+
     except Exception as exc:
-        return {"ok": False, "message": f"上传失败: {exc}"}, 500
+        import traceback
+        error_msg = f"上传失败: {str(exc)}"
+        print(f"[ERROR] {error_msg}")
+        print(f"[ERROR] 堆栈: {traceback.format_exc()}")
+
+        error_response = {"ok": False, "message": error_msg}
+        return json.dumps(error_response, ensure_ascii=False), 500, {'Content-Type': 'application/json; charset=utf-8'}
 
 
 @app.post("/download")
