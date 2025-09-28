@@ -1,8 +1,8 @@
-# 车险数据预处理器
+# Data Forge - 数据锻造工坊
 
-> 🚗 一个现代化的车险变动成本明细分析数据预处理Web应用
+> 🔥 一个现代化的数据预处理与分析Web应用，专注于车险变动成本明细分析
 
-[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/alongor666/car-insurance-data-preprocessor)
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/alongor666/data-forge)
 
 ## ✨ 功能特性
 
@@ -15,7 +15,7 @@
 
 ## 🌐 在线体验
 
-🔗 [访问在线演示](https://car-insurance-data-preprocessor.vercel.app)
+🔗 [访问在线演示](https://data-forge.vercel.app)
 
 ## 🚀 快速开始
 
@@ -24,7 +24,7 @@
 #### 方法1: Vercel 一键部署
 点击上方的 "Deploy to Vercel" 按钮，或访问：
 ```
-https://vercel.com/new/clone?repository-url=https://github.com/alongor666/car-insurance-data-preprocessor
+https://vercel.com/new/clone?repository-url=https://github.com/alongor666/data-forge
 ```
 
 #### 方法2: 手动部署到Vercel
@@ -36,8 +36,8 @@ https://vercel.com/new/clone?repository-url=https://github.com/alongor666/car-in
 #### 方法3: Heroku部署
 ```bash
 # 安装Heroku CLI后执行
-git clone https://github.com/alongor666/car-insurance-data-preprocessor.git
-cd car-insurance-data-preprocessor
+git clone https://github.com/alongor666/data-forge.git
+cd data-forge
 heroku create your-app-name
 git push heroku main
 ```
@@ -46,8 +46,8 @@ git push heroku main
 
 ```bash
 # 克隆仓库
-git clone https://github.com/alongor666/car-insurance-data-preprocessor.git
-cd car-insurance-data-preprocessor
+git clone https://github.com/alongor666/data-forge.git
+cd data-forge
 
 # 安装依赖
 pip install -r requirements.txt
@@ -85,7 +85,7 @@ python app.py
 ## 📁 项目结构
 
 ```
-car-insurance-data-preprocessor/
+data-forge/
 ├── app.py                 # Flask应用主文件
 ├── requirements.txt       # Python依赖
 ├── Procfile              # Heroku部署配置
@@ -134,5 +134,5 @@ A: 可以修改 `app.py` 中的数据处理函数来适应不同的业务需求�
 ---
 
 <div align="center">
-  <strong>🚗 让数据预处理变得简单高效 🚗</strong>
+  <strong>🔥 Data Forge - 数据锻造，精准高效 🔥</strong>
 </div>
