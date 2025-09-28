@@ -19,6 +19,14 @@ APP_NAME = "数据预处理器"
 app = Flask(__name__)
 app.secret_key = os.environ.get("DATA_PREPROCESSOR_SECRET", "dev-secret")
 
+# 添加CORS支持
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
 
 @app.template_filter('strftime')
 def strftime_filter(format_string):
@@ -185,6 +193,31 @@ def index():
     return render_template("index.html", app_name=APP_NAME, paths=paths, result=None)
 
 
+@app.route("/api/debug", methods=["GET", "POST"])
+def debug_info():
+    """调试信息端点"""
+    import sys
+    import platform
+
+    debug_data = {
+        "method": request.method,
+        "python_version": sys.version,
+        "platform": platform.platform(),
+        "flask_version": "Flask imported successfully",
+        "environment": dict(os.environ),
+        "request_headers": dict(request.headers),
+        "cwd": os.getcwd(),
+        "tmp_exists": os.path.exists("/tmp"),
+        "tmp_writable": os.access("/tmp", os.W_OK) if os.path.exists("/tmp") else False
+    }
+
+    if request.method == "POST":
+        debug_data["form_data"] = dict(request.form)
+        debug_data["files"] = list(request.files.keys())
+
+    return jsonify(debug_data)
+
+
 @app.post("/scan")
 def scan():
     paths = {
@@ -266,60 +299,64 @@ def process():
     return render_template("index.html", app_name=APP_NAME, paths=paths, result=result)
 
 
-@app.route("/upload", methods=["GET", "POST"])
+@app.route("/upload", methods=["GET", "POST", "OPTIONS"])
 def upload_files():
     """文件上传功能，适配云端部署"""
+    # 处理OPTIONS预请求
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"})
+
     if request.method == "GET":
         return render_template("upload.html", app_name=APP_NAME)
 
+    # 确保响应是JSON格式
     try:
-        print(f"[DEBUG] 收到上传请求: {list(request.files.keys())}")
+        # 简单测试：直接返回成功信息
+        return jsonify({
+            "ok": True,
+            "message": "测试响应 - 如果您看到这个消息，说明接口工作正常",
+            "method": request.method,
+            "content_type": request.content_type,
+            "files_received": list(request.files.keys()) if request.files else [],
+            "timestamp": datetime.now().isoformat()
+        })
 
+    except Exception as exc:
+        return jsonify({
+            "ok": False,
+            "message": f"错误: {str(exc)}",
+            "timestamp": datetime.now().isoformat()
+        }), 500
+
+
+@app.route("/api/upload", methods=["POST", "OPTIONS"])
+def api_upload():
+    """API上传端点，确保路由正确"""
+    if request.method == "OPTIONS":
+        return jsonify({"status": "ok"})
+
+    try:
+        # 基本的文件处理逻辑
         if 'files' not in request.files:
             return jsonify({"ok": False, "message": "未选择文件"}), 400
 
         files = request.files.getlist('files')
-        print(f"[DEBUG] 文件列表: {[f.filename for f in files if f.filename]}")
-
         if not files or all(f.filename == '' for f in files):
             return jsonify({"ok": False, "message": "未选择有效文件"}), 400
 
-        # 创建临时上传目录
-        upload_dir = Path("/tmp/uploads")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        print(f"[DEBUG] 上传目录: {upload_dir}")
-
-        uploaded_files = []
-        for file in files:
-            if file and file.filename and file.filename.endswith(('.xlsx', '.csv')):
-                filename = file.filename
-                # 确保文件名安全
-                import re
-                safe_filename = re.sub(r'[^\w\-_\.\u4e00-\u9fff]', '_', filename)
-                file_path = upload_dir / safe_filename
-                print(f"[DEBUG] 保存文件: {safe_filename} -> {file_path}")
-                file.save(str(file_path))
-                uploaded_files.append(safe_filename)
-
-        if not uploaded_files:
-            return jsonify({"ok": False, "message": "没有有效的Excel或CSV文件"}), 400
-
-        response_data = {
+        return jsonify({
             "ok": True,
-            "message": f"成功上传 {len(uploaded_files)} 个文件",
-            "files": uploaded_files,
-            "upload_dir": str(upload_dir)
-        }
-
-        print(f"[DEBUG] 上传成功: {response_data}")
-        return jsonify(response_data)
+            "message": f"收到 {len(files)} 个文件",
+            "files": [f.filename for f in files if f.filename],
+            "timestamp": datetime.now().isoformat()
+        })
 
     except Exception as exc:
-        import traceback
-        error_msg = f"上传失败: {str(exc)}"
-        print(f"[ERROR] {error_msg}")
-        print(f"[ERROR] 堆栈: {traceback.format_exc()}")
-        return jsonify({"ok": False, "message": error_msg}), 500
+        return jsonify({
+            "ok": False,
+            "message": f"上传失败: {str(exc)}",
+            "timestamp": datetime.now().isoformat()
+        }), 500
 
 
 @app.post("/download")

@@ -68,6 +68,7 @@
 
         <div class="actions">
           <a href="/" class="btn secondary">返回主页</a>
+          <button type="button" class="btn" onclick="testEndpoints()">测试API端点</button>
         </div>
       </section>
     </main>
@@ -217,6 +218,28 @@
           `;
         }
       });
+
+      // 测试不同的API端点
+      async function testEndpoints() {
+        const endpoints = ['/api/debug', '/upload', '/api/upload'];
+        const results = [];
+
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`测试端点: ${endpoint}`);
+            const response = await fetch(endpoint, {
+              method: 'GET'
+            });
+            const text = await response.text();
+            results.push(`${endpoint}: ${response.status} - ${text.substring(0, 100)}...`);
+          } catch (error) {
+            results.push(`${endpoint}: ERROR - ${error.message}`);
+          }
+        }
+
+        alert('端点测试结果:\n' + results.join('\n\n'));
+        console.log('端点测试结果:', results);
+      }
     </script>
   </body>
 </html>
