@@ -301,7 +301,7 @@ def process():
 
 @app.route("/upload", methods=["GET", "POST", "OPTIONS"])
 def upload_files():
-    """文件上传功能，适配云端部署"""
+    """文件上传和处理功能"""
     # 处理OPTIONS预请求
     if request.method == "OPTIONS":
         return jsonify({"status": "ok"})
@@ -309,24 +309,72 @@ def upload_files():
     if request.method == "GET":
         return render_template("upload.html", app_name=APP_NAME)
 
-    # 确保响应是JSON格式
     try:
-        # 简单测试：直接返回成功信息
+        start_time = time.time()
+
+        # 检查文件上传
+        if 'files' not in request.files:
+            return jsonify({"ok": False, "message": "未选择文件"}), 400
+
+        files = request.files.getlist('files')
+        if not files or all(f.filename == '' for f in files):
+            return jsonify({"ok": False, "message": "未选择有效文件"}), 400
+
+        # 创建临时目录
+        upload_dir = Path("/tmp/uploads")
+        csv_dir = Path("/tmp/converted")
+        output_dir = Path("/tmp/output")
+
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        csv_dir.mkdir(parents=True, exist_ok=True)
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 保存上传的文件
+        uploaded_files = []
+        for file in files:
+            if file and file.filename and file.filename.endswith(('.xlsx', '.csv')):
+                import re
+                safe_filename = re.sub(r'[^\w\-_\.\u4e00-\u9fff]', '_', file.filename)
+                file_path = upload_dir / safe_filename
+                file.save(str(file_path))
+                uploaded_files.append(safe_filename)
+
+        if not uploaded_files:
+            return jsonify({"ok": False, "message": "没有有效的Excel或CSV文件"}), 400
+
+        # 加载处理模块
+        module = load_preprocessor_module()
+
+        # 1. Excel转CSV
+        converted_files = module.convert_excel_to_csv(str(upload_dir), str(csv_dir))
+
+        # 2. 数据预处理
+        restructurer = module.CarInsuranceDataRestructurer()
+        processing_result = restructurer.process_all_files(str(csv_dir), str(output_dir))
+
+        # 3. 更新元数据
+        data_manager = module.DataStructureManager(str(output_dir))
+        data_manager.update_metadata()
+
+        elapsed_time = time.time() - start_time
+
         return jsonify({
             "ok": True,
-            "message": "测试响应 - 如果您看到这个消息，说明接口工作正常",
-            "method": request.method,
-            "content_type": request.content_type,
-            "files_received": list(request.files.keys()) if request.files else [],
-            "timestamp": datetime.now().isoformat()
+            "message": f"成功处理 {len(uploaded_files)} 个文件",
+            "uploaded_files": uploaded_files,
+            "converted_files": converted_files,
+            "processing_summary": processing_result.get("processing_summary", {}),
+            "output_dir": str(output_dir),
+            "elapsed_seconds": round(elapsed_time, 2),
+            "download_available": True
         })
 
     except Exception as exc:
-        return jsonify({
-            "ok": False,
-            "message": f"错误: {str(exc)}",
-            "timestamp": datetime.now().isoformat()
-        }), 500
+        import traceback
+        error_msg = f"处理失败: {str(exc)}"
+        print(f"[ERROR] {error_msg}")
+        print(f"[ERROR] 堆栈: {traceback.format_exc()}")
+        return jsonify({"ok": False, "message": error_msg}), 500
 
 
 @app.route("/api/upload", methods=["POST", "OPTIONS"])
@@ -359,30 +407,36 @@ def api_upload():
         }), 500
 
 
-@app.post("/download")
+@app.route("/download", methods=["GET", "POST"])
 def download_zip():
-    output_dir = request.form.get("output_dir", "").strip()
-    out_path = Path(output_dir)
-    if not out_path.exists() or not out_path.is_dir():
-        flash("无效的输出目录，无法打包下载", "error")
-        return redirect(url_for("index"))
+    """下载处理结果"""
+    try:
+        # 默认使用输出目录
+        output_dir = Path("/tmp/output")
 
-    # 将目录打包为内存 zip 并返回
-    memfile = io.BytesIO()
-    with zipfile.ZipFile(memfile, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
-        for p in out_path.rglob("*"):
-            if p.is_file():
-                arcname = p.relative_to(out_path)
-                zf.write(p, arcname=str(arcname))
-    memfile.seek(0)
+        if not output_dir.exists() or not any(output_dir.iterdir()):
+            return jsonify({"ok": False, "message": "没有可下载的文件"}), 404
 
-    filename = f"data-preprocessed-{int(time.time())}.zip"
-    return send_file(
-        memfile,
-        as_attachment=True,
-        download_name=filename,
-        mimetype="application/zip",
-    )
+        # 将目录打包为内存 zip 并返回
+        memfile = io.BytesIO()
+        with zipfile.ZipFile(memfile, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for p in output_dir.rglob("*"):
+                if p.is_file():
+                    arcname = p.relative_to(output_dir)
+                    zf.write(p, arcname=str(arcname))
+        memfile.seek(0)
+
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"data_forge_processed_{timestamp}.zip"
+
+        return send_file(
+            memfile,
+            as_attachment=True,
+            download_name=filename,
+            mimetype="application/zip",
+        )
+    except Exception as exc:
+        return jsonify({"ok": False, "message": f"下载失败: {str(exc)}"}), 500
 
 
 # Vercel需要导出app对象

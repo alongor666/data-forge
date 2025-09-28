@@ -29,44 +29,50 @@
         {% endif %}
       {% endwith %}
       <section class="card">
-        <h2>🚀 快速开始</h2>
-        <div class="info-grid">
-          <div>
-            <h3>📤 第一步：上传文件</h3>
-            <p>支持Excel和CSV文件，可批量上传</p>
-            <a href="/upload" class="btn primary">前往上传页面</a>
+        <h2>📤 数据文件上传</h2>
+        <div class="upload-area">
+          <div class="drop-zone" id="mainDropZone">
+            <div class="drop-zone-content">
+              <div class="upload-icon">📄</div>
+              <h3>拖拽文件到此处或点击选择</h3>
+              <p>支持 Excel (.xlsx) 和 CSV (.csv) 文件，可批量上传</p>
+              <input type="file" id="mainFileInput" name="files" multiple accept=".xlsx,.csv" hidden />
+              <button type="button" class="btn primary" onclick="document.getElementById('mainFileInput').click()">
+                选择文件
+              </button>
+            </div>
           </div>
-          <div>
-            <h3>⚙️ 第二步：处理数据</h3>
-            <p>自动转换格式，清洗和分析数据</p>
-            <div class="btn secondary" style="opacity: 0.6;">完成上传后可用</div>
+          <div id="mainFileList" class="file-list" style="display: none;"></div>
+          <div class="actions" id="mainUploadActions" style="display: none;">
+            <button type="button" class="btn primary" onclick="uploadFiles()">开始上传并处理</button>
+            <button type="button" class="btn secondary" onclick="clearMainFiles()">清空</button>
           </div>
         </div>
+
+        <div id="mainUploadResult" class="result" style="display: none;"></div>
       </section>
 
       <section class="card">
-        <h2>🔧 高级模式</h2>
-        <p class="muted" style="margin-bottom: 16px;">
-          如果您已有文件在服务器上，可以直接指定目录路径进行处理
-        </p>
-        <form id="mainForm" method="post" class="grid">
-          <label>
-            <span>源 Excel 目录</span>
-            <input id="excel_dir" name="excel_dir" type="text" value="{{ paths.excel_dir }}" placeholder="服务器文件路径" />
-          </label>
-          <label>
-            <span>转换后 CSV 目录</span>
-            <input id="csv_dir" name="csv_dir" type="text" value="{{ paths.csv_dir }}" placeholder="服务器文件路径" />
-          </label>
-          <label class="wide">
-            <span>输出目录</span>
-            <input id="output_dir" name="output_dir" type="text" value="{{ paths.output_dir }}" placeholder="服务器文件路径" />
-          </label>
-          <div class="actions">
-            <button formaction="/scan" formmethod="post" class="btn secondary">扫描目录</button>
-            <button formaction="/process" formmethod="post" class="btn primary">一键预处理</button>
+        <h2>💡 使用说明</h2>
+        <div class="info-grid">
+          <div>
+            <h3>📋 支持格式</h3>
+            <ul>
+              <li>Excel 文件 (.xlsx)</li>
+              <li>CSV 文件 (.csv)</li>
+              <li>支持批量上传处理</li>
+            </ul>
           </div>
-        </form>
+          <div>
+            <h3>🔄 处理流程</h3>
+            <ul>
+              <li>1. 选择并上传数据文件</li>
+              <li>2. 系统自动转换和清洗数据</li>
+              <li>3. 下载处理后的结果文件</li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
         {% if result %}
           <div class="result {{ 'ok' if result.ok else 'error' }}">
@@ -119,18 +125,198 @@
       <span>© {{ '%Y' | strftime }} {{ app_name }} · 云端数据处理</span>
     </footer>
     <script>
-      // 检查URL参数，如果有excel_dir参数，自动填入
-      const urlParams = new URLSearchParams(window.location.search);
-      const excelDir = urlParams.get('excel_dir');
-      if (excelDir) {
-        const excelInput = document.getElementById('excel_dir');
-        if (excelInput) {
-          excelInput.value = decodeURIComponent(excelDir);
-          // 自动设置其他相关目录
-          const csvInput = document.getElementById('csv_dir');
-          const outputInput = document.getElementById('output_dir');
-          if (csvInput) csvInput.value = excelDir.replace('/uploads', '/converted');
-          if (outputInput) outputInput.value = excelDir.replace('/uploads', '/output');
+      const mainDropZone = document.getElementById('mainDropZone');
+      const mainFileInput = document.getElementById('mainFileInput');
+      const mainFileList = document.getElementById('mainFileList');
+      const mainUploadActions = document.getElementById('mainUploadActions');
+      const mainUploadResult = document.getElementById('mainUploadResult');
+
+      let selectedFiles = [];
+
+      // 拖拽功能
+      mainDropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        mainDropZone.classList.add('drag-over');
+      });
+
+      mainDropZone.addEventListener('dragleave', () => {
+        mainDropZone.classList.remove('drag-over');
+      });
+
+      mainDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        mainDropZone.classList.remove('drag-over');
+        handleMainFiles(e.dataTransfer.files);
+      });
+
+      mainFileInput.addEventListener('change', (e) => {
+        handleMainFiles(e.target.files);
+      });
+
+      function handleMainFiles(files) {
+        const validFiles = Array.from(files).filter(file =>
+          file.name.endsWith('.xlsx') || file.name.endsWith('.csv')
+        );
+
+        selectedFiles = [...selectedFiles, ...validFiles];
+        updateMainFileList();
+      }
+
+      function updateMainFileList() {
+        if (selectedFiles.length === 0) {
+          mainFileList.style.display = 'none';
+          mainUploadActions.style.display = 'none';
+          return;
+        }
+
+        mainFileList.innerHTML = `
+          <h3>已选择文件 (${selectedFiles.length})</h3>
+          <ul>
+            ${selectedFiles.map((file, index) => `
+              <li class="file-item">
+                <span>${file.name}</span>
+                <button type="button" class="btn-remove" onclick="removeMainFile(${index})">×</button>
+              </li>
+            `).join('')}
+          </ul>
+        `;
+        mainFileList.style.display = 'block';
+        mainUploadActions.style.display = 'flex';
+      }
+
+      function removeMainFile(index) {
+        selectedFiles.splice(index, 1);
+        updateMainFileList();
+      }
+
+      function clearMainFiles() {
+        selectedFiles = [];
+        mainFileInput.value = '';
+        updateMainFileList();
+        mainUploadResult.style.display = 'none';
+      }
+
+      // 上传文件功能
+      async function uploadFiles() {
+        if (selectedFiles.length === 0) {
+          alert('请先选择文件');
+          return;
+        }
+
+        const formData = new FormData();
+        selectedFiles.forEach(file => {
+          formData.append('files', file);
+        });
+
+        try {
+          mainUploadResult.innerHTML = '<div class="loading">正在上传和处理文件...</div>';
+          mainUploadResult.style.display = 'block';
+
+          console.log('开始上传文件...');
+
+          const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          console.log('响应状态:', response.status);
+          console.log('响应类型:', response.headers.get('content-type'));
+
+          let result;
+          const contentType = response.headers.get('content-type');
+
+          if (contentType && contentType.includes('application/json')) {
+            result = await response.json();
+            console.log('JSON响应:', result);
+          } else {
+            const text = await response.text();
+            console.log('非JSON响应:', text);
+
+            // 详细的错误信息
+            mainUploadResult.className = 'result error';
+            mainUploadResult.innerHTML = `
+              <h3>❌ 上传失败</h3>
+              <p><strong>问题描述:</strong> 服务器返回了非JSON格式的响应</p>
+              <p><strong>响应状态:</strong> ${response.status}</p>
+              <p><strong>可能原因:</strong></p>
+              <ul>
+                <li>服务器内部错误（500错误）</li>
+                <li>路由配置问题</li>
+                <li>Vercel函数超时</li>
+                <li>文件大小超出限制</li>
+              </ul>
+              <p><strong>建议解决方案:</strong></p>
+              <ul>
+                <li>尝试上传更小的文件</li>
+                <li>检查文件格式是否正确</li>
+                <li>稍后重试</li>
+              </ul>
+              <details>
+                <summary>技术详情（点击展开）</summary>
+                <pre style="background: #000; color: #0f0; padding: 10px; margin-top: 10px; border-radius: 5px; overflow: auto; max-height: 200px;">${text}</pre>
+              </details>
+            `;
+            return;
+          }
+
+          if (result.ok) {
+            mainUploadResult.className = 'result ok';
+
+            const processingInfo = result.processing_summary || {};
+            const downloadBtn = result.download_available ?
+              '<a href="/download" class="btn primary" download>📥 下载处理结果</a>' : '';
+
+            mainUploadResult.innerHTML = `
+              <h3>✅ 处理完成</h3>
+              <p>${result.message}</p>
+
+              <div class="info-grid">
+                <div>
+                  <h4>📊 处理统计</h4>
+                  <ul>
+                    <li>上传文件: ${result.uploaded_files ? result.uploaded_files.length : 0} 个</li>
+                    <li>转换文件: ${result.converted_files ? result.converted_files.length : 0} 个</li>
+                    <li>成功处理: ${processingInfo.successful || 0} 个</li>
+                    <li>处理失败: ${processingInfo.failed || 0} 个</li>
+                    <li>处理耗时: ${result.elapsed_seconds || 0} 秒</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4>📁 文件列表</h4>
+                  <ul>
+                    ${result.uploaded_files ? result.uploaded_files.map(f => `<li>${f}</li>`).join('') : '<li>无文件</li>'}
+                  </ul>
+                </div>
+              </div>
+
+              <div class="actions" style="margin-top: 16px;">
+                ${downloadBtn}
+                <button type="button" class="btn secondary" onclick="clearMainFiles()">处理更多文件</button>
+              </div>
+            `;
+          } else {
+            mainUploadResult.className = 'result error';
+            mainUploadResult.innerHTML = `
+              <h3>❌ 处理失败</h3>
+              <p><strong>错误信息:</strong> ${result.message}</p>
+              <p><strong>建议:</strong> 请检查文件格式是否正确，或稍后重试</p>
+            `;
+          }
+        } catch (error) {
+          console.error('上传错误:', error);
+          mainUploadResult.className = 'result error';
+          mainUploadResult.innerHTML = `
+            <h3>❌ 网络错误</h3>
+            <p><strong>错误类型:</strong> ${error.name}</p>
+            <p><strong>错误信息:</strong> ${error.message}</p>
+            <p><strong>可能原因:</strong></p>
+            <ul>
+              <li>网络连接不稳定</li>
+              <li>服务器暂时不可用</li>
+              <li>文件过大导致超时</li>
+            </ul>
+            <p><strong>建议:</strong> 请检查网络连接后重试</p>
+          `;
         }
       }
     </script>
