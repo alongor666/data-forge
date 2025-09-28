@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ app_name }} - 文件上传</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero-content">
+        <div class="badge">云端版</div>
+        <h1 class="title">{{ app_name }}</h1>
+        <p class="subtitle">上传数据文件 · 云端处理 · 极致便捷</p>
+      </div>
+    </header>
+
+    <main class="container">
+      <section class="card">
+        <h2>📁 文件上传</h2>
+        <div class="upload-area">
+          <form id="uploadForm" enctype="multipart/form-data">
+            <div class="drop-zone" id="dropZone">
+              <div class="drop-zone-content">
+                <div class="upload-icon">📄</div>
+                <h3>拖拽文件到此处或点击选择</h3>
+                <p>支持 Excel (.xlsx) 和 CSV (.csv) 文件</p>
+                <input type="file" id="fileInput" name="files" multiple accept=".xlsx,.csv" hidden />
+                <button type="button" class="btn primary" onclick="document.getElementById('fileInput').click()">
+                  选择文件
+                </button>
+              </div>
+            </div>
+            <div id="fileList" class="file-list"></div>
+            <div class="actions" id="uploadActions" style="display: none;">
+              <button type="submit" class="btn primary">开始上传</button>
+              <button type="button" class="btn secondary" onclick="clearFiles()">清空</button>
+            </div>
+          </form>
+        </div>
+
+        <div id="uploadResult" class="result" style="display: none;"></div>
+      </section>
+
+      <section class="card">
+        <h2>💡 使用说明</h2>
+        <div class="info-grid">
+          <div>
+            <h3>📤 支持格式</h3>
+            <ul>
+              <li>Excel 文件 (.xlsx)</li>
+              <li>CSV 文件 (.csv)</li>
+              <li>批量上传多个文件</li>
+            </ul>
+          </div>
+          <div>
+            <h3>🔄 处理流程</h3>
+            <ul>
+              <li>上传数据文件</li>
+              <li>自动转换和清洗</li>
+              <li>下载处理结果</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="actions">
+          <a href="/" class="btn secondary">返回主页</a>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>© {{ '%Y' | strftime }} {{ app_name }} · 云端数据处理</span>
+    </footer>
+
+    <script>
+      const dropZone = document.getElementById('dropZone');
+      const fileInput = document.getElementById('fileInput');
+      const fileList = document.getElementById('fileList');
+      const uploadActions = document.getElementById('uploadActions');
+      const uploadForm = document.getElementById('uploadForm');
+      const uploadResult = document.getElementById('uploadResult');
+
+      let selectedFiles = [];
+
+      // 拖拽功能
+      dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('drag-over');
+      });
+
+      dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('drag-over');
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('drag-over');
+        handleFiles(e.dataTransfer.files);
+      });
+
+      fileInput.addEventListener('change', (e) => {
+        handleFiles(e.target.files);
+      });
+
+      function handleFiles(files) {
+        const validFiles = Array.from(files).filter(file =>
+          file.name.endsWith('.xlsx') || file.name.endsWith('.csv')
+        );
+
+        selectedFiles = [...selectedFiles, ...validFiles];
+        updateFileList();
+      }
+
+      function updateFileList() {
+        if (selectedFiles.length === 0) {
+          fileList.innerHTML = '';
+          uploadActions.style.display = 'none';
+          return;
+        }
+
+        fileList.innerHTML = `
+          <h3>已选择文件 (${selectedFiles.length})</h3>
+          <ul>
+            ${selectedFiles.map((file, index) => `
+              <li class="file-item">
+                <span>${file.name}</span>
+                <button type="button" class="btn-remove" onclick="removeFile(${index})">×</button>
+              </li>
+            `).join('')}
+          </ul>
+        `;
+        uploadActions.style.display = 'flex';
+      }
+
+      function removeFile(index) {
+        selectedFiles.splice(index, 1);
+        updateFileList();
+      }
+
+      function clearFiles() {
+        selectedFiles = [];
+        fileInput.value = '';
+        updateFileList();
+        uploadResult.style.display = 'none';
+      }
+
+      // 表单提交
+      uploadForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        if (selectedFiles.length === 0) {
+          alert('请先选择文件');
+          return;
+        }
+
+        const formData = new FormData();
+        selectedFiles.forEach(file => {
+          formData.append('files', file);
+        });
+
+        try {
+          uploadResult.innerHTML = '<div class="loading">上传中...</div>';
+          uploadResult.style.display = 'block';
+
+          const response = await fetch('/upload', {
+            method: 'POST',
+            body: formData
+          });
+
+          const result = await response.json();
+
+          if (result.ok) {
+            uploadResult.className = 'result ok';
+            uploadResult.innerHTML = `
+              <h3>上传成功</h3>
+              <p>${result.message}</p>
+              <div class="actions">
+                <a href="/?excel_dir=${encodeURIComponent(result.upload_dir)}" class="btn primary">
+                  前往处理页面
+                </a>
+              </div>
+            `;
+          } else {
+            uploadResult.className = 'result error';
+            uploadResult.innerHTML = `
+              <h3>上传失败</h3>
+              <p>${result.message}</p>
+            `;
+          }
+        } catch (error) {
+          uploadResult.className = 'result error';
+          uploadResult.innerHTML = `
+            <h3>上传失败</h3>
+            <p>网络错误：${error.message}</p>
+          `;
+        }
+      });
+    </script>
+  </body>
+</html>

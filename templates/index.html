@@ -12,9 +12,9 @@
   <body>
     <header class="hero">
       <div class="hero-content">
-        <div class="badge">全新</div>
+        <div class="badge">云端版</div>
         <h1 class="title">{{ app_name }}</h1>
-        <p class="subtitle">参考生产脚本 · 一键清洗 · 极致简洁</p>
+        <p class="subtitle">文件上传 · 云端处理 · 即时下载</p>
       </div>
     </header>
 
@@ -29,35 +29,39 @@
         {% endif %}
       {% endwith %}
       <section class="card">
-        <h2>目录设置与执行</h2>
+        <h2>🚀 快速开始</h2>
+        <div class="info-grid">
+          <div>
+            <h3>📤 第一步：上传文件</h3>
+            <p>支持Excel和CSV文件，可批量上传</p>
+            <a href="/upload" class="btn primary">前往上传页面</a>
+          </div>
+          <div>
+            <h3>⚙️ 第二步：处理数据</h3>
+            <p>自动转换格式，清洗和分析数据</p>
+            <div class="btn secondary" style="opacity: 0.6;">完成上传后可用</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>🔧 高级模式</h2>
+        <p class="muted" style="margin-bottom: 16px;">
+          如果您已有文件在服务器上，可以直接指定目录路径进行处理
+        </p>
         <form id="mainForm" method="post" class="grid">
           <label>
             <span>源 Excel 目录</span>
-            <div class="row">
-              <input id="excel_dir" name="excel_dir" type="text" value="{{ paths.excel_dir }}" placeholder="/绝对/路径/到/数据源" readonly required />
-              <button class="btn" data-pick="excel" type="button">选择…</button>
-            </div>
+            <input id="excel_dir" name="excel_dir" type="text" value="{{ paths.excel_dir }}" placeholder="服务器文件路径" />
           </label>
           <label>
             <span>转换后 CSV 目录</span>
-            <div class="row">
-              <input id="csv_dir" name="csv_dir" type="text" value="{{ paths.csv_dir }}" placeholder="/绝对/路径/到/转换后数据" readonly required />
-              <button class="btn" data-pick="csv" type="button">选择…</button>
-            </div>
+            <input id="csv_dir" name="csv_dir" type="text" value="{{ paths.csv_dir }}" placeholder="服务器文件路径" />
           </label>
           <label class="wide">
-            <span>输出/下载目录（可修改）</span>
-            <div class="row">
-              <input id="output_dir" name="output_dir" type="text" value="{{ paths.output_dir }}" placeholder="/绝对/路径/到/输出目录" readonly required />
-              <button class="btn" data-pick="output" type="button">选择…</button>
-            </div>
+            <span>输出目录</span>
+            <input id="output_dir" name="output_dir" type="text" value="{{ paths.output_dir }}" placeholder="服务器文件路径" />
           </label>
-          <div class="wide manual-toggle">
-            <label class="toggle">
-              <input id="manualSwitch" type="checkbox" />
-              <span>允许手动输入目录（无图形界面或权限受限时启用）</span>
-            </label>
-          </div>
           <div class="actions">
             <button formaction="/scan" formmethod="post" class="btn secondary">扫描目录</button>
             <button formaction="/process" formmethod="post" class="btn primary">一键预处理</button>
@@ -112,36 +116,23 @@
     </main>
 
     <footer class="footer">
-      <span>© {{ '%Y' | strftime }} {{ app_name }} · Apple Keynote 风格</span>
+      <span>© {{ '%Y' | strftime }} {{ app_name }} · 云端数据处理</span>
     </footer>
     <script>
-      async function pick(target) {
-        try {
-          const res = await fetch(`/pick?target=${encodeURIComponent(target)}`);
-          const data = await res.json();
-          if (data.ok && data.path) {
-            const input = document.getElementById(`${target}_dir`);
-            if (input) input.value = data.path;
-          } else {
-            alert((data && data.message) || '未选择目录或无法打开选择器，请开启手动输入后粘贴路径');
-          }
-        } catch (e) {
-          alert('无法打开系统目录选择器，请开启手动输入后粘贴路径。');
+      // 检查URL参数，如果有excel_dir参数，自动填入
+      const urlParams = new URLSearchParams(window.location.search);
+      const excelDir = urlParams.get('excel_dir');
+      if (excelDir) {
+        const excelInput = document.getElementById('excel_dir');
+        if (excelInput) {
+          excelInput.value = decodeURIComponent(excelDir);
+          // 自动设置其他相关目录
+          const csvInput = document.getElementById('csv_dir');
+          const outputInput = document.getElementById('output_dir');
+          if (csvInput) csvInput.value = excelDir.replace('/uploads', '/converted');
+          if (outputInput) outputInput.value = excelDir.replace('/uploads', '/output');
         }
       }
-      document.querySelectorAll('[data-pick]')?.forEach(btn => {
-        btn.addEventListener('click', () => pick(btn.getAttribute('data-pick')));
-      });
-
-      // 手动输入开关：切换 readonly
-      const manual = document.getElementById('manualSwitch');
-      const fields = ['excel_dir','csv_dir','output_dir'].map(id => document.getElementById(id));
-      function applyManualState() {
-        const allow = manual.checked;
-        fields.forEach(el => { if (el) el.readOnly = !allow; });
-      }
-      manual?.addEventListener('change', applyManualState);
-      applyManualState();
     </script>
   </body>
   </html>

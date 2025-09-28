@@ -118,6 +118,118 @@ input[type="text"]:focus {
 
 .footer { text-align: center; color: var(--muted); padding: 32px 16px 48px; }
 
+/* 上传相关样式 */
+.upload-area { margin: 16px 0; }
+.drop-zone {
+  border: 2px dashed rgba(255,255,255,0.3);
+  border-radius: 16px;
+  padding: 40px 20px;
+  text-align: center;
+  transition: border-color 0.3s, background-color 0.3s;
+  cursor: pointer;
+}
+
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--primary);
+  background: rgba(14,165,233,0.05);
+}
+
+.drop-zone-content h3 {
+  margin: 16px 0 8px;
+  color: var(--text);
+}
+
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.file-list {
+  margin: 16px 0;
+  padding: 16px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.file-list h3 {
+  margin: 0 0 12px;
+  color: var(--primary);
+}
+
+.file-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.btn-remove {
+  background: rgba(244,63,94,0.2);
+  border: 1px solid rgba(244,63,94,0.4);
+  color: #f43f5e;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+.btn-remove:hover {
+  background: rgba(244,63,94,0.3);
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 16px 0;
+}
+
+.info-grid h3 {
+  margin: 0 0 8px;
+  color: var(--primary);
+}
+
+.info-grid ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: var(--primary);
+}
+
+/* 云端模式标识 */
+.cloud-mode {
+  display: inline-block;
+  padding: 4px 8px;
+  background: linear-gradient(90deg, #10b981, #059669);
+  color: white;
+  font-size: 11px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
 @media (max-width: 720px) {
-  .grid, .columns { grid-template-columns: 1fr; }
+  .grid, .columns, .info-grid { grid-template-columns: 1fr; }
+  .drop-zone { padding: 30px 16px; }
+  .upload-icon { font-size: 36px; }
 }
