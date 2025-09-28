@@ -1,35 +1,138 @@
-数据预处理器
+# 车险数据预处理器
 
-一个基于现有“数据预处理脚本”的本地网页应用，提供可视化操作：选择源数据文件夹、转换后文件夹与输出下载地址，一键完成 Excel→CSV 转换与数据预处理，并支持将结果打包下载。
+> 🚗 一个现代化的车险变动成本明细分析数据预处理Web应用
 
-功能
-- 目录选择：源 Excel 目录、转换后 CSV 目录、输出/下载目录（可修改）
-- 一键处理：批量 Excel→CSV + 预处理（字段标准化、绝对值计算、按年度拆分、元数据更新）
-- 结果摘要：展示处理统计、年度与文件概览
-- 下载结果：将输出目录内容打包为 zip 下载
-- 风格：苹果发布会风格（深色、简洁、动效）
+[![Deploy to Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/alongor666/car-insurance-data-preprocessor)
 
-运行
-1. 确保已安装并激活本项目下的虚拟环境（已在 `数据转换/venv` 内）：
-   - Python 依赖：Flask, pandas, openpyxl
-2. 启动应用：
-   - macOS/Linux: `数据转换/venv/bin/python app.py`
-   - 或使用系统 Python: `python3 app.py`（需自行确保依赖已安装）
-3. 打开浏览器访问：http://127.0.0.1:5000/
+## ✨ 功能特性
 
-默认目录会自动填充：
-- 源 Excel 目录：`数据转换/数据源`
-- 转换后 CSV 目录：`数据转换/转换后数据`
-- 输出/下载目录：`数据转换/car-insurance-dashboard/data`
+- 🎯 **一键预处理**：批量 Excel→CSV 转换 + 数据清洗
+- 📊 **智能分析**：字段标准化、绝对值计算、按年度拆分
+- 🎨 **现代UI**：Apple Keynote 风格深色主题
+- 📱 **响应式设计**：支持桌面和移动设备
+- 📦 **结果下载**：自动打包处理结果为ZIP文件
+- 🌐 **在线部署**：支持Vercel、Heroku等平台一键部署
 
-说明
-- 应用直接复用 `数据转换/数据预处理脚本.py` 中的核心函数：
-  - convert_excel_to_csv
-  - CarInsuranceDataRestructurer
-  - DataStructureManager
-- 不改动原脚本逻辑，仅通过 Web 表单传入目录参数并展示结果。
-- 若需自定义处理逻辑，请在原脚本中修改对应函数。
+## 🌐 在线体验
 
-注意
-- 浏览器无法直接访问系统任意路径的文件，目录选择通过表单输入的“绝对路径”实现，服务端负责读取与处理。
-- 若打包下载较大，请等待服务端生成 zip 后再下载。
+🔗 [访问在线演示](https://car-insurance-data-preprocessor.vercel.app)
+
+## 🚀 快速开始
+
+### 在线部署（推荐）
+
+#### 方法1: Vercel 一键部署
+点击上方的 "Deploy to Vercel" 按钮，或访问：
+```
+https://vercel.com/new/clone?repository-url=https://github.com/alongor666/car-insurance-data-preprocessor
+```
+
+#### 方法2: 手动部署到Vercel
+1. Fork 此仓库到你的GitHub账号
+2. 在 [Vercel](https://vercel.com) 创建新项目
+3. 导入你fork的仓库
+4. Vercel会自动检测Python项目并部署
+
+#### 方法3: Heroku部署
+```bash
+# 安装Heroku CLI后执行
+git clone https://github.com/alongor666/car-insurance-data-preprocessor.git
+cd car-insurance-data-preprocessor
+heroku create your-app-name
+git push heroku main
+```
+
+### 本地运行
+
+```bash
+# 克隆仓库
+git clone https://github.com/alongor666/car-insurance-data-preprocessor.git
+cd car-insurance-data-preprocessor
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动应用
+python app.py
+
+# 打开浏览器访问 http://localhost:5000
+```
+
+## 📖 使用说明
+
+1. **设置目录路径**
+   - 源Excel目录：存放原始.xlsx文件的目录
+   - 转换CSV目录：存放转换后.csv文件的目录
+   - 输出目录：处理结果的输出目录
+
+2. **扫描数据文件**
+   - 点击"扫描目录"查看可用的数据文件
+
+3. **执行数据预处理**
+   - 点击"一键预处理"开始处理
+   - 系统会显示处理进度和结果统计
+
+4. **下载处理结果**
+   - 处理完成后可打包下载所有结果文件
+
+## 🛠️ 技术栈
+
+- **后端**: Python 3.9+ / Flask
+- **前端**: HTML5 / CSS3 / Vanilla JavaScript
+- **部署**: Vercel / Heroku / Docker
+- **样式**: Apple Keynote 风格深色主题
+
+## 📁 项目结构
+
+```
+car-insurance-data-preprocessor/
+├── app.py                 # Flask应用主文件
+├── requirements.txt       # Python依赖
+├── Procfile              # Heroku部署配置
+├── vercel.json           # Vercel部署配置
+├── templates/
+│   └── index.html        # 主页模板
+├── static/
+│   └── styles.css        # 样式文件
+└── README.md             # 项目说明
+```
+
+## 🔧 环境变量配置
+
+可通过环境变量自定义运行参数：
+
+- `PORT`: 应用端口 (默认: 5000)
+- `HOST`: 绑定地址 (默认: 0.0.0.0)
+- `DEBUG`: 调试模式 (默认: False)
+- `DATA_PREPROCESSOR_SECRET`: Flask密钥
+
+## 🤝 贡献指南
+
+欢迎提交Issue和Pull Request！
+
+1. Fork 此仓库
+2. 创建feature分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 创建Pull Request
+
+## 📄 许可证
+
+MIT License - 详见 [LICENSE](LICENSE) 文件
+
+## ❓ 常见问题
+
+**Q: 如何处理大型数据文件？**
+A: 系统支持批量处理，大文件会自动分块处理以避免内存溢出。
+
+**Q: 支持哪些数据格式？**
+A: 目前支持Excel (.xlsx) 和 CSV 格式，未来会支持更多格式。
+
+**Q: 如何自定义数据处理逻辑？**
+A: 可以修改 `app.py` 中的数据处理函数来适应不同的业务需求。
+
+---
+
+<div align="center">
+  <strong>🚗 让数据预处理变得简单高效 🚗</strong>
+</div>
