@@ -36,20 +36,7 @@ def strftime_filter(format_string):
 
 def load_preprocessor_module():
     """动态加载数据预处理模块，如果不存在则使用内置模拟功能"""
-    import importlib.util
-
-    # 尝试加载外部脚本
-    project_root = Path(__file__).resolve().parent.parent
-    script_path = project_root / "数据转换" / "数据预处理脚本.py"
-
-    if script_path.exists():
-        spec = importlib.util.spec_from_file_location("data_preprocessor", str(script_path))
-        module = importlib.util.module_from_spec(spec)  # type: ignore
-        if spec and spec.loader:
-            spec.loader.exec_module(module)  # type: ignore
-            return module
-
-    # 使用内置模拟功能
+    # 在云端环境中，强制使用内置模拟功能以确保兼容性
     return create_mock_preprocessor()
 
 
@@ -57,12 +44,12 @@ def create_mock_preprocessor():
     """创建模拟数据处理模块，用于云端部署演示"""
     import types
     import csv
-    import pandas as pd
 
     module = types.ModuleType("mock_preprocessor")
 
     def convert_excel_to_csv(excel_dir, csv_dir):
         """模拟Excel到CSV转换功能"""
+        from pathlib import Path
         excel_dir = Path(excel_dir)
         csv_dir = Path(csv_dir)
         csv_dir.mkdir(parents=True, exist_ok=True)
@@ -95,6 +82,7 @@ def create_mock_preprocessor():
     class CarInsuranceDataRestructurer:
         def process_all_files(self, csv_dir, output_dir):
             """模拟数据预处理功能"""
+            from pathlib import Path
             csv_dir = Path(csv_dir)
             output_dir = Path(output_dir)
             output_dir.mkdir(parents=True, exist_ok=True)
@@ -155,6 +143,7 @@ def create_mock_preprocessor():
 
     class DataStructureManager:
         def __init__(self, output_dir):
+            from pathlib import Path
             self.output_dir = Path(output_dir)
 
         def update_metadata(self):
@@ -441,4 +430,7 @@ def download_zip():
 
 # Vercel入口点
 if __name__ == "__main__":
-    app.run(debug=False)
+    port = int(os.environ.get("PORT", 5000))
+    host = os.environ.get("HOST", "127.0.0.1")
+    debug = os.environ.get("DEBUG", "False").lower() == "true"
+    app.run(host=host, port=port, debug=debug)
