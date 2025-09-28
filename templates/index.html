@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{ app_name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero-content">
+        <div class="badge">全新</div>
+        <h1 class="title">{{ app_name }}</h1>
+        <p class="subtitle">参考生产脚本 · 一键清洗 · 极致简洁</p>
+      </div>
+    </header>
+
+    <main class="container">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-area">
+            {% for category, msg in messages %}
+              <div class="flash {{ category }}">{{ msg }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      <section class="card">
+        <h2>目录设置与执行</h2>
+        <form id="mainForm" method="post" class="grid">
+          <label>
+            <span>源 Excel 目录</span>
+            <div class="row">
+              <input id="excel_dir" name="excel_dir" type="text" value="{{ paths.excel_dir }}" placeholder="/绝对/路径/到/数据源" readonly required />
+              <button class="btn" data-pick="excel" type="button">选择…</button>
+            </div>
+          </label>
+          <label>
+            <span>转换后 CSV 目录</span>
+            <div class="row">
+              <input id="csv_dir" name="csv_dir" type="text" value="{{ paths.csv_dir }}" placeholder="/绝对/路径/到/转换后数据" readonly required />
+              <button class="btn" data-pick="csv" type="button">选择…</button>
+            </div>
+          </label>
+          <label class="wide">
+            <span>输出/下载目录（可修改）</span>
+            <div class="row">
+              <input id="output_dir" name="output_dir" type="text" value="{{ paths.output_dir }}" placeholder="/绝对/路径/到/输出目录" readonly required />
+              <button class="btn" data-pick="output" type="button">选择…</button>
+            </div>
+          </label>
+          <div class="wide manual-toggle">
+            <label class="toggle">
+              <input id="manualSwitch" type="checkbox" />
+              <span>允许手动输入目录（无图形界面或权限受限时启用）</span>
+            </label>
+          </div>
+          <div class="actions">
+            <button formaction="/scan" formmethod="post" class="btn secondary">扫描目录</button>
+            <button formaction="/process" formmethod="post" class="btn primary">一键预处理</button>
+          </div>
+        </form>
+
+        {% if result %}
+          <div class="result {{ 'ok' if result.ok else 'error' }}">
+            {% if result.ok %}
+              <h3>处理完成</h3>
+              <ul>
+                <li>成功文件：{{ result.summary.processing_summary.successful or 0 }}</li>
+                <li>失败文件：{{ result.summary.processing_summary.failed or 0 }}</li>
+                <li>涉及年度：{{ (result.summary.years or []) | join(', ') }}</li>
+                <li>耗时：{{ result.summary.elapsed_sec }} 秒</li>
+                <li>报告文件：{{ result.summary.report_path }}</li>
+                <li>输出目录：{{ result.summary.output_dir }}</li>
+              </ul>
+              <form method="post" action="/download">
+                <input type="hidden" name="output_dir" value="{{ result.summary.output_dir }}" />
+                <button type="submit" class="btn subtle">打包下载结果（zip）</button>
+              </form>
+            {% else %}
+              <h3>处理失败</h3>
+            {% endif %}
+            {% if result.messages %}
+              <pre class="log">{{ '\n'.join(result.messages) }}</pre>
+            {% endif %}
+          </div>
+        {% endif %}
+      </section>
+
+      {% if result and (result.excel or result.csv) %}
+      <section class="card">
+        <h2>目录扫描结果</h2>
+        <div class="columns">
+          <div>
+            <h3>Excel (xlsx)</h3>
+            <ul>
+              {% for f in result.excel %}<li>{{ f }}</li>{% else %}<li class="muted">无</li>{% endfor %}
+            </ul>
+          </div>
+          <div>
+            <h3>CSV</h3>
+            <ul>
+              {% for f in result.csv %}<li>{{ f }}</li>{% else %}<li class="muted">无</li>{% endfor %}
+            </ul>
+          </div>
+        </div>
+      </section>
+      {% endif %}
+    </main>
+
+    <footer class="footer">
+      <span>© {{ '%Y' | strftime }} {{ app_name }} · Apple Keynote 风格</span>
+    </footer>
+    <script>
+      async function pick(target) {
+        try {
+          const res = await fetch(`/pick?target=${encodeURIComponent(target)}`);
+          const data = await res.json();
+          if (data.ok && data.path) {
+            const input = document.getElementById(`${target}_dir`);
+            if (input) input.value = data.path;
+          } else {
+            alert((data && data.message) || '未选择目录或无法打开选择器，请开启手动输入后粘贴路径');
+          }
+        } catch (e) {
+          alert('无法打开系统目录选择器，请开启手动输入后粘贴路径。');
+        }
+      }
+      document.querySelectorAll('[data-pick]')?.forEach(btn => {
+        btn.addEventListener('click', () => pick(btn.getAttribute('data-pick')));
+      });
+
+      // 手动输入开关：切换 readonly
+      const manual = document.getElementById('manualSwitch');
+      const fields = ['excel_dir','csv_dir','output_dir'].map(id => document.getElementById(id));
+      function applyManualState() {
+        const allow = manual.checked;
+        fields.forEach(el => { if (el) el.readOnly = !allow; });
+      }
+      manual?.addEventListener('change', applyManualState);
+      applyManualState();
+    </script>
+  </body>
+  </html>

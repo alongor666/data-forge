@@ -1,0 +1,123 @@
+/* Apple Keynote inspired dark theme */
+:root {
+  --bg: #0b0b0f;
+  --bg-soft: #121218;
+  --panel: #16161e;
+  --text: #f2f2f7;
+  --muted: #a1a1aa;
+  --primary: #0ea5e9;
+  --primary-2: #60a5fa;
+  --ring: rgba(14,165,233,0.35);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Inter, system-ui, Segoe UI, Roboto, Arial;
+  color: var(--text);
+  background: radial-gradient(1200px 800px at 10% -10%, #0b1a2a, transparent),
+              radial-gradient(1000px 600px at 110% -20%, #220a2a, transparent),
+              var(--bg);
+}
+
+.hero {
+  padding: 64px 24px 32px;
+  text-align: center;
+}
+.hero .badge {
+  display: inline-block;
+  padding: 6px 10px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-2));
+  color: #000;
+  font-weight: 700;
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: .06em;
+}
+.hero .title {
+  margin: 16px 0 8px;
+  font-size: 52px;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+.hero .subtitle {
+  margin: 0;
+  color: var(--muted);
+}
+
+.container { max-width: 980px; margin: 0 auto; padding: 0 16px 64px; }
+
+.card {
+  margin: 24px 0;
+  padding: 20px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.card h2 { margin: 6px 6px 16px; font-weight: 700; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.grid .wide { grid-column: 1 / -1; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+
+label { display: flex; flex-direction: column; gap: 6px; }
+label span { color: var(--muted); font-size: 13px; }
+input[type="text"] {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--bg-soft);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text);
+  outline: none;
+  transition: box-shadow .2s, border-color .2s;
+}
+input[type="text"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 6px var(--ring);
+}
+
+.actions { grid-column: 1 / -1; display: flex; gap: 10px; justify-content: flex-end; }
+.manual-toggle { grid-column: 1 / -1; margin-top: -6px; color: var(--muted); font-size: 13px; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; }
+
+.flash-area { margin: 8px 0 0; }
+.flash { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); margin-bottom: 8px; }
+.flash.info { border-color: rgba(96,165,250,0.45); }
+.flash.success { border-color: rgba(34,197,94,0.45); }
+.flash.error { border-color: rgba(244,63,94,0.45); }
+
+.btn {
+  appearance: none;
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02));
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+}
+.btn.primary { border-color: rgba(14,165,233,0.45); background: linear-gradient(180deg, rgba(14,165,233,0.25), rgba(14,165,233,0.12)); }
+.btn.secondary { border-color: rgba(96,165,250,0.45); background: linear-gradient(180deg, rgba(96,165,250,0.25), rgba(96,165,250,0.12)); }
+.btn.subtle { opacity: .9; }
+.btn:hover { transform: translateY(-1px); }
+
+.result { margin-top: 16px; padding: 16px; border-radius: 12px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
+.result.ok { border-color: rgba(34,197,94,0.45); }
+.result.error { border-color: rgba(244,63,94,0.45); }
+.result h3 { margin: 0 0 8px; }
+.result ul { margin: 0 0 8px; padding-left: 18px; }
+
+.log { margin: 0; padding: 12px; background: #0d0d12; border-radius: 10px; color: #cbd5e1; max-height: 240px; overflow: auto; }
+
+.columns { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.columns ul { margin: 8px 0 0; padding-left: 18px; max-height: 240px; overflow: auto; }
+.muted { color: var(--muted); }
+
+.footer { text-align: center; color: var(--muted); padding: 32px 16px 48px; }
+
+@media (max-width: 720px) {
+  .grid, .columns { grid-template-columns: 1fr; }
+}
