@@ -122,7 +122,7 @@
     </main>
 
     <footer class="footer">
-      <span>© {{ '%Y' | strftime }} {{ app_name }} · 云端数据处理</span>
+      <span>© 2024 车险变动成本分析 · 云端数据处理</span>
     </footer>
     <script>
       const mainDropZone = document.getElementById('mainDropZone');
@@ -203,16 +203,16 @@
           return;
         }
 
+        // 只处理第一个文件（简化版本）
+        const file = selectedFiles[0];
         const formData = new FormData();
-        selectedFiles.forEach(file => {
-          formData.append('files', file);
-        });
+        formData.append('file', file);
 
         try {
           mainUploadResult.innerHTML = '<div class="loading">正在上传和处理文件...</div>';
           mainUploadResult.style.display = 'block';
 
-          console.log('开始上传文件...');
+          console.log('开始上传文件:', file.name);
 
           const response = await fetch('/upload', {
             method: 'POST',
@@ -220,78 +220,40 @@
           });
 
           console.log('响应状态:', response.status);
-          console.log('响应类型:', response.headers.get('content-type'));
 
-          let result;
-          const contentType = response.headers.get('content-type');
+          const result = await response.json();
+          console.log('服务器响应:', result);
 
-          if (contentType && contentType.includes('application/json')) {
-            result = await response.json();
-            console.log('JSON响应:', result);
-          } else {
-            const text = await response.text();
-            console.log('非JSON响应:', text);
-
-            // 详细的错误信息
-            mainUploadResult.className = 'result error';
-            mainUploadResult.innerHTML = `
-              <h3>❌ 上传失败</h3>
-              <p><strong>问题描述:</strong> 服务器返回了非JSON格式的响应</p>
-              <p><strong>响应状态:</strong> ${response.status}</p>
-              <p><strong>可能原因:</strong></p>
-              <ul>
-                <li>服务器内部错误（500错误）</li>
-                <li>路由配置问题</li>
-                <li>Vercel函数超时</li>
-                <li>文件大小超出限制</li>
-              </ul>
-              <p><strong>建议解决方案:</strong></p>
-              <ul>
-                <li>尝试上传更小的文件</li>
-                <li>检查文件格式是否正确</li>
-                <li>稍后重试</li>
-              </ul>
-              <details>
-                <summary>技术详情（点击展开）</summary>
-                <pre style="background: #000; color: #0f0; padding: 10px; margin-top: 10px; border-radius: 5px; overflow: auto; max-height: 200px;">${text}</pre>
-              </details>
-            `;
-            return;
-          }
-
-          if (result.ok) {
+          if (result.success) {
             mainUploadResult.className = 'result ok';
-
-            const processingInfo = result.processing_summary || {};
-            const downloadBtn = result.download_available ?
-              '<a href="/download" class="btn primary" download>📥 下载处理结果</a>' : '';
-
+            
+            // ZIP下载按钮 - 唯一下载方式
+            let zipDownloadButton = '';
+            if (result.zip_download_url) {
+              zipDownloadButton = `
+                <div class="zip-download-section">
+                  <a href="${result.zip_download_url}" class="btn primary large" download>
+                    📦 下载处理结果（${result.output_files ? result.output_files.length : 0}个文件）
+                  </a>
+                  <p class="download-hint">包含所有年度的保单数据文件</p>
+                </div>
+              `;
+            }
+            
             mainUploadResult.innerHTML = `
               <h3>✅ 处理完成</h3>
               <p>${result.message}</p>
-
+              ${zipDownloadButton}
               <div class="info-grid">
                 <div>
                   <h4>📊 处理统计</h4>
                   <ul>
-                    <li>上传文件: ${result.uploaded_files ? result.uploaded_files.length : 0} 个</li>
-                    <li>转换文件: ${result.converted_files ? result.converted_files.length : 0} 个</li>
-                    <li>成功处理: ${processingInfo.successful || 0} 个</li>
-                    <li>处理失败: ${processingInfo.failed || 0} 个</li>
-                    <li>处理耗时: ${result.elapsed_seconds || 0} 秒</li>
+                    <li>总处理行数: ${result.total_row_count || 0} 行</li>
+                    <li>输出字段: ${result.field_count || 0} 个</li>
+                    <li>处理年度: ${result.years_processed ? result.years_processed.join(', ') : '未知'}</li>
+                    <li>输出文件: ${result.output_files ? result.output_files.length : 0} 个</li>
                   </ul>
                 </div>
-                <div>
-                  <h4>📁 文件列表</h4>
-                  <ul>
-                    ${result.uploaded_files ? result.uploaded_files.map(f => `<li>${f}</li>`).join('') : '<li>无文件</li>'}
-                  </ul>
-                </div>
-              </div>
-
-              <div class="actions" style="margin-top: 16px;">
-                ${downloadBtn}
-                <button type="button" class="btn secondary" onclick="clearMainFiles()">处理更多文件</button>
               </div>
             `;
           } else {
@@ -306,16 +268,9 @@
           console.error('上传错误:', error);
           mainUploadResult.className = 'result error';
           mainUploadResult.innerHTML = `
-            <h3>❌ 网络错误</h3>
-            <p><strong>错误类型:</strong> ${error.name}</p>
+            <h3>❌ 上传失败</h3>
             <p><strong>错误信息:</strong> ${error.message}</p>
-            <p><strong>可能原因:</strong></p>
-            <ul>
-              <li>网络连接不稳定</li>
-              <li>服务器暂时不可用</li>
-              <li>文件过大导致超时</li>
-            </ul>
-            <p><strong>建议:</strong> 请检查网络连接后重试</p>
+            <p><strong>建议:</strong> 请检查网络连接或稍后重试</p>
           `;
         }
       }
