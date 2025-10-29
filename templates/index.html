@@ -3,277 +3,646 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{{ app_name }}</title>
+    <title>{{ app_name }} · 智能云端处理</title>
+    <meta name="description" content="{{ app_name }}：为车险业务打造的云端级数据预处理工作台，极速上传、精准清洗、可信输出。" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
   </head>
   <body>
+    <div class="bg-canvas" aria-hidden="true">
+      <div class="orb orb-one"></div>
+      <div class="orb orb-two"></div>
+      <div class="orb orb-three"></div>
+    </div>
+
     <header class="hero">
-      <div class="hero-content">
-        <div class="badge">云端版</div>
-        <h1 class="title">{{ app_name }}</h1>
-        <p class="subtitle">文件上传 · 云端处理 · 即时下载</p>
+      <div class="hero__content">
+        <span class="hero__eyebrow">数智风控 · 云端保障</span>
+        <h1 class="hero__title">{{ app_name }} 数据体验中心</h1>
+        <p class="hero__subtitle">用一体化的行业模板与严谨的字段映射，让每一次保单分析都精准、可信、可复用。</p>
+        <div class="hero__stats">
+          <div class="stat">
+            <span class="stat__value">≤ 50 MB</span>
+            <span class="stat__label">单次极速上传</span>
+          </div>
+          <div class="stat">
+            <span class="stat__value">27 项</span>
+            <span class="stat__label">字段规范保障</span>
+          </div>
+          <div class="stat">
+            <span class="stat__value">多年度</span>
+            <span class="stat__label">智能拆分导出</span>
+          </div>
+        </div>
       </div>
     </header>
 
-    <main class="container">
-      {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-          <div class="flash-area">
-            {% for category, msg in messages %}
-              <div class="flash {{ category }}">{{ msg }}</div>
-            {% endfor %}
+    <main class="layout">
+      <section class="panel panel--primary" id="panelUpload">
+        <div class="panel__header">
+          <div>
+            <span class="panel__eyebrow">步骤一</span>
+            <h2 class="panel__title">上传保单数据文件</h2>
+            <p class="panel__description">支持批量上传多份 Excel，系统自动识别年度、周次与字段标准，保障输出与模板一致。</p>
           </div>
-        {% endif %}
-      {% endwith %}
-      <section class="card">
-        <h2>📤 数据文件上传</h2>
-        <div class="upload-area">
-          <div class="drop-zone" id="mainDropZone">
-            <div class="drop-zone-content">
-              <div class="upload-icon">📄</div>
-              <h3>拖拽文件到此处或点击选择</h3>
-              <p>支持 Excel (.xlsx) 和 CSV (.csv) 文件，可批量上传</p>
-              <input type="file" id="mainFileInput" name="files" multiple accept=".xlsx,.csv" hidden />
-              <button type="button" class="btn primary" onclick="document.getElementById('mainFileInput').click()">
-                选择文件
-              </button>
+          <div class="badge badge--glow">智能质检</div>
+        </div>
+
+        <div class="panel__body">
+          <div class="upload-grid">
+            <div class="dropzone" id="dropZone">
+              <input type="file" id="fileInput" accept=".xlsx,.xls" multiple hidden />
+              <div class="dropzone__content">
+                <div class="dropzone__icon">⬆️</div>
+                <h3 class="dropzone__title">拖放文件到此区域，或点击上传</h3>
+                <p class="dropzone__subtitle">支持 .xlsx / .xls，自动校验字段、自动分年度导出</p>
+                <div class="dropzone__actions">
+                  <button type="button" class="btn btn--primary" id="triggerFileInput">选择文件</button>
+                  <button type="button" class="btn btn--ghost" id="sampleLink">查看模板规范</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="upload-meta">
+              <div class="meta-block">
+                <span class="meta-block__eyebrow">周序号（可选）</span>
+                <div class="meta-block__field">
+                  <input type="number" id="weekNumber" name="weekNumber" min="1" max="53" placeholder="1-53" />
+                  <small>未填写时系统将自动从文件名推断，例如“第43周”</small>
+                </div>
+              </div>
+              <div class="meta-block">
+                <span class="meta-block__eyebrow">文件队列</span>
+                <div id="fileQueue" class="file-queue is-empty" role="list">尚未选择文件</div>
+              </div>
+              <div class="meta-block meta-block--inline">
+                <button type="button" class="btn btn--primary" id="actionProcess" disabled>开始云端处理</button>
+                <button type="button" class="btn btn--ghost" id="actionClear" disabled>清空列表</button>
+              </div>
+              <p class="meta-hint">数据处理将在云端沙箱内完成，原始文件仅用于本次分析并在会话结束后安全清理。</p>
             </div>
           </div>
-          <div id="mainFileList" class="file-list" style="display: none;"></div>
-          <div class="actions" id="mainUploadActions" style="display: none;">
-            <button type="button" class="btn primary" onclick="uploadFiles()">开始上传并处理</button>
-            <button type="button" class="btn secondary" onclick="clearMainFiles()">清空</button>
-          </div>
-        </div>
-
-        <div id="mainUploadResult" class="result" style="display: none;"></div>
-      </section>
-
-      <section class="card">
-        <h2>💡 使用说明</h2>
-        <div class="info-grid">
-          <div>
-            <h3>📋 支持格式</h3>
-            <ul>
-              <li>Excel 文件 (.xlsx)</li>
-              <li>CSV 文件 (.csv)</li>
-              <li>支持批量上传处理</li>
-            </ul>
-          </div>
-          <div>
-            <h3>🔄 处理流程</h3>
-            <ul>
-              <li>1. 选择并上传数据文件</li>
-              <li>2. 系统自动转换和清洗数据</li>
-              <li>3. 下载处理后的结果文件</li>
-            </ul>
-          </div>
         </div>
       </section>
 
-        {% if result %}
-          <div class="result {{ 'ok' if result.ok else 'error' }}">
-            {% if result.ok %}
-              <h3>处理完成</h3>
-              <ul>
-                <li>成功文件：{{ result.summary.processing_summary.successful or 0 }}</li>
-                <li>失败文件：{{ result.summary.processing_summary.failed or 0 }}</li>
-                <li>涉及年度：{{ (result.summary.years or []) | join(', ') }}</li>
-                <li>耗时：{{ result.summary.elapsed_sec }} 秒</li>
-                <li>报告文件：{{ result.summary.report_path }}</li>
-                <li>输出目录：{{ result.summary.output_dir }}</li>
-              </ul>
-              <form method="post" action="/download">
-                <input type="hidden" name="output_dir" value="{{ result.summary.output_dir }}" />
-                <button type="submit" class="btn subtle">打包下载结果（zip）</button>
-              </form>
-            {% else %}
-              <h3>处理失败</h3>
-            {% endif %}
-            {% if result.messages %}
-              <pre class="log">{{ '\n'.join(result.messages) }}</pre>
-            {% endif %}
+      <section class="panel panel--result is-hidden" id="resultPanel">
+        <div class="panel__header">
+          <div>
+            <span class="panel__eyebrow">步骤二</span>
+            <h2 class="panel__title">实时处理追踪</h2>
+            <p class="panel__description">处理完成后，即刻下载年度拆分的高质量 CSV，或一键打包成 ZIP。</p>
           </div>
-        {% endif %}
+          <div class="badge badge--accent" id="resultBadge">等待上传</div>
+        </div>
+        <div class="panel__body">
+          <div id="sessionSummary" class="session-summary" aria-live="polite"></div>
+          <div id="fileResults" class="result-grid"></div>
+        </div>
       </section>
 
-      {% if result and (result.excel or result.csv) %}
-      <section class="card">
-        <h2>目录扫描结果</h2>
-        <div class="columns">
-          <div>
-            <h3>Excel (xlsx)</h3>
-            <ul>
-              {% for f in result.excel %}<li>{{ f }}</li>{% else %}<li class="muted">无</li>{% endfor %}
-            </ul>
+      <section class="panel panel--insights">
+        <div class="insights-grid">
+          <div class="insight-card">
+            <span class="insight-card__eyebrow">严谨字段守护</span>
+            <h3>行业模板即插即用</h3>
+            <p>内置 27 项字段映射表，自动补齐缺失维度、统一布尔值、转换保费单位，全面符合《处理规范》。</p>
           </div>
-          <div>
-            <h3>CSV</h3>
-            <ul>
-              {% for f in result.csv %}<li>{{ f }}</li>{% else %}<li class="muted">无</li>{% endfor %}
-            </ul>
+          <div class="insight-card">
+            <span class="insight-card__eyebrow">质量闭环</span>
+            <h3>可追溯的处理报告</h3>
+            <p>每份文件生成处理摘要，包含年度拆分、行数统计、ZIP 下载链接，方便团队协作复核。</p>
+          </div>
+          <div class="insight-card">
+            <span class="insight-card__eyebrow">云端性能</span>
+            <h3>高并发、低等待</h3>
+            <p>采用异步队列顺序处理多文件，实时反馈进度与成功率，让数据处理效率质的提升。</p>
           </div>
         </div>
       </section>
-      {% endif %}
     </main>
 
     <footer class="footer">
-      <span>© 2024 车险变动成本分析 · 云端数据处理</span>
+      <div class="footer__content">
+        <span>© {{ '%Y' | strftime }} {{ app_name }} · Cloud Data Forge</span>
+        <a href="mailto:dataops@example.com" class="footer__link">联系数据运营团队</a>
+      </div>
     </footer>
+
     <script>
-      const mainDropZone = document.getElementById('mainDropZone');
-      const mainFileInput = document.getElementById('mainFileInput');
-      const mainFileList = document.getElementById('mainFileList');
-      const mainUploadActions = document.getElementById('mainUploadActions');
-      const mainUploadResult = document.getElementById('mainUploadResult');
+      document.addEventListener('DOMContentLoaded', () => {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const triggerFileInput = document.getElementById('triggerFileInput');
+        const sampleLink = document.getElementById('sampleLink');
+        const fileQueueEl = document.getElementById('fileQueue');
+        const processBtn = document.getElementById('actionProcess');
+        const clearBtn = document.getElementById('actionClear');
+        const weekField = document.getElementById('weekNumber');
+        const resultPanel = document.getElementById('resultPanel');
+        const sessionSummary = document.getElementById('sessionSummary');
+        const fileResults = document.getElementById('fileResults');
+        const resultBadge = document.getElementById('resultBadge');
 
-      let selectedFiles = [];
+        const toastHost = document.createElement('div');
+        toastHost.className = 'toast-host';
+        document.body.appendChild(toastHost);
 
-      // 拖拽功能
-      mainDropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        mainDropZone.classList.add('drag-over');
-      });
+        const state = {
+          files: [],
+          processing: false,
+          counter: 0
+        };
 
-      mainDropZone.addEventListener('dragleave', () => {
-        mainDropZone.classList.remove('drag-over');
-      });
+        const statusClassMap = {
+          queued: 'status-pill--queued',
+          processing: 'status-pill--processing',
+          success: 'status-pill--success',
+          failed: 'status-pill--error',
+          error: 'status-pill--error',
+          unsupported: 'status-pill--warning'
+        };
 
-      mainDropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        mainDropZone.classList.remove('drag-over');
-        handleMainFiles(e.dataTransfer.files);
-      });
+        const statusLabelMap = {
+          queued: '待处理',
+          processing: '处理中',
+          success: '处理完成',
+          failed: '处理失败',
+          error: '处理失败',
+          unsupported: '类型不支持'
+        };
 
-      mainFileInput.addEventListener('change', (e) => {
-        handleMainFiles(e.target.files);
-      });
+        const badgeModes = ['badge--processing', 'badge--success', 'badge--error', 'badge--idle', 'badge--warning'];
 
-      function handleMainFiles(files) {
-        const validFiles = Array.from(files).filter(file =>
-          file.name.endsWith('.xlsx') || file.name.endsWith('.csv')
-        );
-
-        selectedFiles = [...selectedFiles, ...validFiles];
-        updateMainFileList();
-      }
-
-      function updateMainFileList() {
-        if (selectedFiles.length === 0) {
-          mainFileList.style.display = 'none';
-          mainUploadActions.style.display = 'none';
-          return;
+        function formatBytes(bytes) {
+          if (!Number.isFinite(bytes) || bytes <= 0) return '—';
+          const units = ['B', 'KB', 'MB', 'GB'];
+          const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+          const value = bytes / Math.pow(1024, exp);
+          return `${value.toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
         }
 
-        mainFileList.innerHTML = `
-          <h3>已选择文件 (${selectedFiles.length})</h3>
-          <ul>
-            ${selectedFiles.map((file, index) => `
-              <li class="file-item">
-                <span>${file.name}</span>
-                <button type="button" class="btn-remove" onclick="removeMainFile(${index})">×</button>
-              </li>
-            `).join('')}
-          </ul>
-        `;
-        mainFileList.style.display = 'block';
-        mainUploadActions.style.display = 'flex';
-      }
-
-      function removeMainFile(index) {
-        selectedFiles.splice(index, 1);
-        updateMainFileList();
-      }
-
-      function clearMainFiles() {
-        selectedFiles = [];
-        mainFileInput.value = '';
-        updateMainFileList();
-        mainUploadResult.style.display = 'none';
-      }
-
-      // 上传文件功能
-      async function uploadFiles() {
-        if (selectedFiles.length === 0) {
-          alert('请先选择文件');
-          return;
+        function formatNumber(value) {
+          if (value === undefined || value === null) return '—';
+          return new Intl.NumberFormat('zh-CN').format(value);
         }
 
-        // 只处理第一个文件（简化版本）
-        const file = selectedFiles[0];
-        const formData = new FormData();
-        formData.append('file', file);
+        function showToast(message, variant = 'info') {
+          const toast = document.createElement('div');
+          toast.className = `toast toast--${variant}`;
+          toast.textContent = message;
+          toastHost.appendChild(toast);
+          setTimeout(() => {
+            toast.classList.add('is-leaving');
+            setTimeout(() => toast.remove(), 320);
+          }, 3200);
+        }
 
-        try {
-          mainUploadResult.innerHTML = '<div class="loading">正在上传和处理文件...</div>';
-          mainUploadResult.style.display = 'block';
+        function setBadge(mode, text) {
+          resultBadge.textContent = text;
+          resultBadge.classList.remove(...badgeModes);
+          switch (mode) {
+            case 'processing':
+              resultBadge.classList.add('badge--processing');
+              break;
+            case 'success':
+              resultBadge.classList.add('badge--success');
+              break;
+            case 'warning':
+              resultBadge.classList.add('badge--warning');
+              break;
+            case 'error':
+              resultBadge.classList.add('badge--error');
+              break;
+            default:
+              resultBadge.classList.add('badge--idle');
+          }
+        }
 
-          console.log('开始上传文件:', file.name);
+        function updateControls() {
+          const hasProcessable = state.files.some(file => file.status === 'queued');
+          processBtn.disabled = state.processing || !hasProcessable;
+          clearBtn.disabled = state.processing || state.files.length === 0;
+        }
 
-          const response = await fetch('/upload', {
-            method: 'POST',
-            body: formData
+        function renderQueue() {
+          fileQueueEl.innerHTML = '';
+          if (state.files.length === 0) {
+            fileQueueEl.classList.add('is-empty');
+            fileQueueEl.textContent = '尚未选择文件';
+            updateControls();
+            return;
+          }
+
+          fileQueueEl.classList.remove('is-empty');
+
+          state.files.forEach(entry => {
+            const item = document.createElement('div');
+            item.className = 'file-queue__item';
+            item.dataset.id = entry.id;
+
+            const meta = document.createElement('div');
+            meta.className = 'file-row__meta';
+
+            const name = document.createElement('div');
+            name.className = 'file-row__name';
+            name.textContent = entry.file.name;
+
+            const details = document.createElement('div');
+            details.className = 'file-row__details';
+            details.textContent = `${formatBytes(entry.file.size)} · ${entry.file.type || 'Excel 文档'}`;
+
+            meta.appendChild(name);
+            meta.appendChild(details);
+
+            const actions = document.createElement('div');
+            actions.className = 'file-row__actions';
+
+            const status = document.createElement('span');
+            status.className = `status-pill ${statusClassMap[entry.status] || statusClassMap.queued}`;
+            status.textContent = statusLabelMap[entry.status] || statusLabelMap.queued;
+            actions.appendChild(status);
+
+            if (!state.processing && entry.status !== 'processing') {
+              const removeBtn = document.createElement('button');
+              removeBtn.type = 'button';
+              removeBtn.className = 'btn-remove';
+              removeBtn.setAttribute('data-remove-id', entry.id);
+              removeBtn.setAttribute('aria-label', `移除 ${entry.file.name}`);
+              removeBtn.textContent = '×';
+              actions.appendChild(removeBtn);
+            }
+
+            item.appendChild(meta);
+            item.appendChild(actions);
+            fileQueueEl.appendChild(item);
           });
 
-          console.log('响应状态:', response.status);
-
-          const result = await response.json();
-          console.log('服务器响应:', result);
-
-          if (result.success) {
-            mainUploadResult.className = 'result ok';
-            
-            // ZIP下载按钮 - 唯一下载方式
-            let zipDownloadButton = '';
-            if (result.zip_download_url) {
-              zipDownloadButton = `
-                <div class="zip-download-section">
-                  <a href="${result.zip_download_url}" class="btn primary large" download>
-                    📦 下载处理结果（${result.output_files ? result.output_files.length : 0}个文件）
-                  </a>
-                  <p class="download-hint">包含所有年度的保单数据文件</p>
-                </div>
-              `;
-            }
-            
-            mainUploadResult.innerHTML = `
-              <h3>✅ 处理完成</h3>
-              <p>${result.message}</p>
-              ${zipDownloadButton}
-              <div class="info-grid">
-                <div>
-                  <h4>📊 处理统计</h4>
-                  <ul>
-                    <li>总处理行数: ${result.total_row_count || 0} 行</li>
-                    <li>输出字段: ${result.field_count || 0} 个</li>
-                    <li>处理年度: ${result.years_processed ? result.years_processed.join(', ') : '未知'}</li>
-                    <li>输出文件: ${result.output_files ? result.output_files.length : 0} 个</li>
-                  </ul>
-                </div>
-              </div>
-            `;
-          } else {
-            mainUploadResult.className = 'result error';
-            mainUploadResult.innerHTML = `
-              <h3>❌ 处理失败</h3>
-              <p><strong>错误信息:</strong> ${result.message}</p>
-              <p><strong>建议:</strong> 请检查文件格式是否正确，或稍后重试</p>
-            `;
-          }
-        } catch (error) {
-          console.error('上传错误:', error);
-          mainUploadResult.className = 'result error';
-          mainUploadResult.innerHTML = `
-            <h3>❌ 上传失败</h3>
-            <p><strong>错误信息:</strong> ${error.message}</p>
-            <p><strong>建议:</strong> 请检查网络连接或稍后重试</p>
-          `;
+          updateControls();
         }
-      }
+
+        function resetResults() {
+          sessionSummary.innerHTML = '';
+          fileResults.innerHTML = '';
+        }
+
+        function renderSummary(summary) {
+          sessionSummary.innerHTML = '';
+
+          const config = [
+            { label: '总文件数', value: formatNumber(summary.total_files) },
+            { label: '成功文件', value: formatNumber(summary.successful) },
+            { label: '合计行数', value: formatNumber(summary.total_row_count) },
+            { label: '涉及年度', value: summary.years && summary.years.length ? summary.years.join('、') : '自动识别' },
+            { label: '周序号', value: summary.week_number ? `第 ${String(summary.week_number).padStart(2, '0')} 周` : '文件自动推断' }
+          ];
+
+          config.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'summary-card';
+
+            const value = document.createElement('div');
+            value.className = 'summary-card__value';
+            value.textContent = item.value;
+
+            const label = document.createElement('div');
+            label.className = 'summary-card__label';
+            label.textContent = item.label;
+
+            card.appendChild(value);
+            card.appendChild(label);
+            sessionSummary.appendChild(card);
+          });
+        }
+
+        function buildStatusPill(status) {
+          const pill = document.createElement('span');
+          pill.className = `status-pill ${statusClassMap[status] || statusClassMap.queued}`;
+          pill.textContent = statusLabelMap[status] || statusLabelMap.queued;
+          return pill;
+        }
+
+        function renderResults(files) {
+          fileResults.innerHTML = '';
+
+          files.forEach(file => {
+            const card = document.createElement('article');
+            card.className = 'result-card';
+
+            const header = document.createElement('div');
+            header.className = 'result-card__header';
+
+            const title = document.createElement('h3');
+            title.className = 'result-card__title';
+            title.textContent = file.original_filename;
+
+            const status = buildStatusPill(file.status);
+
+            header.appendChild(title);
+            header.appendChild(status);
+            card.appendChild(header);
+
+            const meta = document.createElement('div');
+            meta.className = 'result-card__meta';
+
+            meta.appendChild(createMetaChip('输出表数', formatNumber(file.outputs ? file.outputs.length : 0)));
+            meta.appendChild(createMetaChip('行数', formatNumber(file.total_row_count)));
+
+            if (file.years_processed && file.years_processed.length) {
+              meta.appendChild(createMetaChip('年度', file.years_processed.join('、')));
+            }
+
+            if (file.week_number) {
+              meta.appendChild(createMetaChip('周次', `第 ${String(file.week_number).padStart(2, '0')} 周`));
+            }
+
+            card.appendChild(meta);
+
+            if (file.outputs && file.outputs.length) {
+              const outputList = document.createElement('div');
+              outputList.className = 'output-list';
+
+              file.outputs.forEach(output => {
+                const anchor = document.createElement('a');
+                anchor.className = 'output-link';
+                anchor.href = output.download_url || '#';
+                anchor.textContent = output.filename;
+                anchor.setAttribute('download', output.filename);
+
+                const span = document.createElement('span');
+                span.className = 'output-meta';
+                span.textContent = `${formatNumber(output.row_count || 0)} 行`;
+                anchor.appendChild(span);
+
+                outputList.appendChild(anchor);
+              });
+
+              card.appendChild(outputList);
+            }
+
+            const footer = document.createElement('div');
+            footer.className = 'result-card__footer';
+
+            const feedback = document.createElement('p');
+            feedback.className = 'feedback';
+            feedback.textContent = file.message || (file.status === 'success' ? '处理完成，已保存至“处理后”目录。' : '运行结果见上方状态。');
+
+            const actions = document.createElement('div');
+            actions.className = 'result-card__actions';
+
+            if (file.zip_package && file.zip_package.download_url) {
+              const zipBtn = document.createElement('a');
+              zipBtn.className = 'btn btn--ghost';
+              zipBtn.href = file.zip_package.download_url;
+              zipBtn.textContent = `下载 ZIP（${file.zip_package.file_count || 0} 文件）`;
+              zipBtn.setAttribute('download', file.zip_package.filename);
+              actions.appendChild(zipBtn);
+            }
+
+            footer.appendChild(feedback);
+            footer.appendChild(actions);
+            card.appendChild(footer);
+
+            if (file.status === 'failed' || file.status === 'error') {
+              const errorNote = document.createElement('p');
+              errorNote.className = 'feedback';
+              errorNote.textContent = file.message || '处理失败，请检查源文件格式后重试。';
+              card.appendChild(errorNote);
+            }
+
+            if (file.status === 'unsupported') {
+              const warning = document.createElement('p');
+              warning.className = 'feedback';
+              warning.textContent = file.message || '文件类型暂不支持，请上传 Excel 格式。';
+              card.appendChild(warning);
+            }
+
+            fileResults.appendChild(card);
+          });
+        }
+
+        function createMetaChip(label, value) {
+          const chip = document.createElement('span');
+          chip.className = 'meta-chip';
+          chip.textContent = `${label} · ${value}`;
+          return chip;
+        }
+
+        function setProcessing(isProcessing) {
+          state.processing = isProcessing;
+          triggerFileInput.disabled = isProcessing;
+          fileInput.disabled = isProcessing;
+          processBtn.disabled = isProcessing;
+          clearBtn.disabled = isProcessing;
+          dropZone.classList.toggle('is-disabled', isProcessing);
+          dropZone.setAttribute('aria-busy', String(isProcessing));
+        }
+
+        function addFiles(fileList) {
+          const incoming = Array.from(fileList);
+          if (!incoming.length) return;
+
+          incoming.forEach(file => {
+            const duplicate = state.files.find(entry => entry.file.name === file.name && entry.file.size === file.size);
+            if (duplicate) {
+              showToast(`已存在同名文件：${file.name}`, 'warning');
+              return;
+            }
+
+            const entry = {
+              id: `file-${++state.counter}`,
+              file,
+              status: /\.(xlsx|xls)$/i.test(file.name) ? 'queued' : 'unsupported'
+            };
+
+            if (entry.status === 'unsupported') {
+              entry.message = '仅支持 Excel 文件 (.xlsx / .xls)';
+              showToast(`${file.name} 格式不支持`, 'warning');
+            }
+
+            state.files.push(entry);
+          });
+
+          renderQueue();
+        }
+
+        function removeFile(id) {
+          state.files = state.files.filter(entry => entry.id !== id);
+          renderQueue();
+        }
+
+        function clearFiles() {
+          state.files = [];
+          renderQueue();
+          resetResults();
+          setBadge('idle', '等待上传');
+          resultPanel.classList.add('is-hidden');
+        }
+
+        function handleServerResponse(payload) {
+          if (!payload || !payload.files) {
+            throw new Error('服务器未返回有效数据');
+          }
+
+          payload.files.forEach(file => {
+            const entry = state.files.find(item => item.id === file.client_id) || state.files[file.queue_index];
+            if (!entry) return;
+
+            const mappedStatus = statusClassMap[file.status] ? file.status : 'failed';
+            entry.status = mappedStatus;
+            entry.message = file.message;
+            entry.result = file;
+          });
+
+          renderQueue();
+          renderSummary(payload.summary || {});
+          renderResults(payload.files);
+
+          const failed = payload.summary ? payload.summary.failed : 0;
+          const succeeded = payload.summary ? payload.summary.successful : 0;
+          let badgeMode = 'success';
+          let badgeText = payload.message || '全部文件处理完成';
+
+          if (failed > 0 && succeeded > 0) {
+            badgeMode = 'warning';
+            badgeText = payload.message || '部分文件处理异常';
+          } else if (failed > 0 && succeeded === 0) {
+            badgeMode = 'error';
+            badgeText = payload.message || '处理失败';
+          }
+
+          setBadge(badgeMode, badgeText);
+          resultPanel.classList.remove('is-hidden');
+        }
+
+        async function processFiles() {
+          const processable = state.files.filter(file => file.status === 'queued');
+          if (!processable.length) {
+            showToast('请先添加至少一个 Excel 文件', 'info');
+            return;
+          }
+
+          setProcessing(true);
+          processable.forEach(file => {
+            file.status = 'processing';
+          });
+          renderQueue();
+          resetResults();
+          resultPanel.classList.remove('is-hidden');
+          setBadge('processing', '处理中');
+
+          const placeholderCard = document.createElement('div');
+          placeholderCard.className = 'summary-card';
+          const placeholderValue = document.createElement('div');
+          placeholderValue.className = 'summary-card__value';
+          placeholderValue.textContent = '⏱';
+          const placeholderLabel = document.createElement('div');
+          placeholderLabel.className = 'summary-card__label';
+          placeholderLabel.textContent = '正在云端处理';
+          placeholderCard.appendChild(placeholderValue);
+          placeholderCard.appendChild(placeholderLabel);
+          sessionSummary.appendChild(placeholderCard);
+
+          const formData = new FormData();
+          processable.forEach(entry => {
+            formData.append('file', entry.file);
+            formData.append('client_ids', entry.id);
+          });
+
+          const weekNumber = weekField.value.trim();
+          if (weekNumber) {
+            formData.append('week_number', weekNumber);
+          }
+
+          try {
+            const response = await fetch('/upload', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!response.ok) {
+              throw new Error(`服务器返回状态 ${response.status}`);
+            }
+
+            const payload = await response.json();
+
+            if (!payload.success) {
+              showToast(payload.message || '部分文件处理失败', 'warning');
+            } else {
+              showToast(payload.message || '全部文件处理完成', 'success');
+            }
+
+            handleServerResponse(payload);
+          } catch (error) {
+            console.error('处理失败:', error);
+            showToast(`处理失败：${error.message}`, 'error');
+            setBadge('error', '处理失败');
+
+            state.files.forEach(file => {
+              if (file.status === 'processing') {
+                file.status = 'failed';
+                file.message = error.message;
+              }
+            });
+            renderQueue();
+          } finally {
+            setProcessing(false);
+            updateControls();
+          }
+        }
+
+        // 事件绑定
+        triggerFileInput.addEventListener('click', () => fileInput.click());
+
+        sampleLink.addEventListener('click', () => {
+          showToast('请参阅项目根目录下的《处理规范.md》了解字段说明。', 'info');
+        });
+
+        fileInput.addEventListener('change', event => {
+          addFiles(event.target.files);
+          fileInput.value = '';
+        });
+
+        dropZone.addEventListener('dragover', event => {
+          event.preventDefault();
+          dropZone.classList.add('is-dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+          dropZone.classList.remove('is-dragover');
+        });
+
+        dropZone.addEventListener('drop', event => {
+          event.preventDefault();
+          dropZone.classList.remove('is-dragover');
+          addFiles(event.dataTransfer.files);
+        });
+
+        fileQueueEl.addEventListener('click', event => {
+          const target = event.target;
+          if (target.matches('[data-remove-id]')) {
+            const id = target.getAttribute('data-remove-id');
+            removeFile(id);
+          }
+        });
+
+        clearBtn.addEventListener('click', () => {
+          if (state.files.length === 0) return;
+          clearFiles();
+          showToast('已清空文件队列', 'info');
+        });
+
+        processBtn.addEventListener('click', () => {
+          if (!state.processing) {
+            processFiles();
+          }
+        });
+
+        setBadge('idle', '等待上传');
+        updateControls();
+        renderQueue();
+      });
     </script>
   </body>
-  </html>
+</html>

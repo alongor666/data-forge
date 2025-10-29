@@ -6,39 +6,58 @@
 """
 
 import os
+import re
+import zipfile
 import pandas as pd
 import numpy as np
 from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime
-import zipfile
-import tempfile
+from typing import List
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+APP_NAME = "Data Forge · 车险变动成本实验室"
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB限制
 
 # 目录配置
 UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = 'output'
+OUTPUT_FOLDER = '处理后'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+
+@app.context_processor
+def inject_global_template_variables():
+    """Provide global template variables."""
+    return {
+        'app_name': APP_NAME
+    }
+
+
+@app.template_filter('strftime')
+def strftime_filter(format_string: str = '%Y-%m-%d') -> str:
+    """模板过滤器：输出当前时间的格式化字符串。"""
+    return datetime.now().strftime(format_string)
+
 
 class DataProcessor:
     """数据处理器 - 简化版"""
     
     def __init__(self):
-        # 完整的26字段列表（严格按照输出模板.csv顺序）
+        # 完整的27字段列表（严格按照输出模板.csv顺序）
         self.required_fields = [
-            # 17个筛选维度字段
+            # 18个筛选维度字段
             'snapshot_date',           # 刷新时间
             'policy_start_year',       # 保险起期
             'business_type_category',  # 业务类型
             'chengdu_branch',          # 成都中支
+            'second_level_organization', # 二级机构
             'third_level_organization', # 三级机构
             'customer_category_3',     # 客户类别3
             'insurance_type',          # 险种类
@@ -64,12 +83,13 @@ class DataProcessor:
             'week_number'              # 周次
         ]
         
-        # 17个筛选维度字段（保持原有定义用于处理逻辑）
+        # 18个筛选维度字段（保持原有定义用于处理逻辑）
         self.filtering_fields = [
             'snapshot_date',           # 刷新时间
             'policy_start_year',       # 保险起期
             'business_type_category',  # 业务类型
             'chengdu_branch',          # 成都中支
+            'second_level_organization', # 二级机构
             'third_level_organization', # 三级机构
             'customer_category_3',     # 客户类别3
             'insurance_type',          # 险种类
@@ -104,6 +124,7 @@ class DataProcessor:
             '保险起期': 'policy_start_year',
             '业务类型分类': 'business_type_category',
             '成都中支': 'chengdu_branch',
+            '二级机构': 'second_level_organization',
             '三级机构': 'third_level_organization',
             '客户类别3': 'customer_category_3',
             '险种类': 'insurance_type',
@@ -138,7 +159,7 @@ class DataProcessor:
             True: True, False: False
         }
 
-    def standardize_fields(self, df, original_filename=None):
+    def standardize_fields(self, df, original_filename=None, user_week_number=None):
         """标准化字段名和数据类型"""
         # 首先重命名中文列名为英文列名
         df_renamed = df.rename(columns=self.field_mapping)
@@ -154,6 +175,8 @@ class DataProcessor:
                     result_df[field] = False
                 elif field in ['policy_start_year', 'week_number']:
                     result_df[field] = 0
+                elif field == 'second_level_organization':
+                    result_df[field] = '四川'  # 二级机构统一设置为四川
                 else:
                     result_df[field] = ''
         
@@ -169,45 +192,81 @@ class DataProcessor:
                 if pd.isna(value):
                     return 0
                 try:
-                    # 尝试转换为日期时间格式
+                    # 字符串处理
                     if isinstance(value, str):
-                        # 处理各种日期格式
-                        if '/' in value or '-' in value or '年' in value:
-                            # 尝试解析日期
-                            date_obj = pd.to_datetime(value, errors='coerce')
+                        text = value.strip()
+                        if not text:
+                            return 0
+
+                        # 优先尝试解析常见日期格式
+                        if any(sep in text for sep in ('/', '-', '年', '月', '日')):
+                            date_obj = pd.to_datetime(text, errors='coerce')
                             if pd.notna(date_obj):
-                                return date_obj.year
-                        # 如果是纯数字字符串，直接转换
-                        return int(float(value))
-                    elif isinstance(value, (int, float)):
-                        # 如果是数值，判断是年份还是日期序列号
-                        if value > 1900 and value < 2100:
+                                return int(date_obj.year)
+
+                        # 使用正则捕捉4位年份
+                        year_match = re.search(r'(19|20)\d{2}', text)
+                        if year_match:
+                            return int(year_match.group(0))
+
+                        # 去除非数字字符再尝试解析
+                        numeric_part = re.sub(r'[^0-9.]', '', text)
+                        if numeric_part:
+                            return int(float(numeric_part))
+                        return 0
+
+                    # 数值类型直接处理
+                    if isinstance(value, (int, float)):
+                        if 1900 <= value <= 2100:
                             return int(value)
-                        else:
-                            # 可能是Excel日期序列号，尝试转换
-                            date_obj = pd.to_datetime(value, origin='1900-01-01', unit='D', errors='coerce')
-                            if pd.notna(date_obj):
-                                return date_obj.year
-                    else:
-                        # 其他类型，尝试转换为日期
-                        date_obj = pd.to_datetime(value, errors='coerce')
+                        date_obj = pd.to_datetime(value, origin='1900-01-01', unit='D', errors='coerce')
                         if pd.notna(date_obj):
-                            return date_obj.year
+                            return int(date_obj.year)
+
+                    # 其他类型回退到通用解析
+                    date_obj = pd.to_datetime(value, errors='coerce')
+                    if pd.notna(date_obj):
+                        return int(date_obj.year)
                     return 0
-                except:
+                except Exception:
                     return 0
             
             result_df['policy_start_year'] = result_df['policy_start_year'].apply(extract_year)
         else:
             result_df['policy_start_year'] = 0
         
-        # 从文件名提取周次
-        week_number = 40  # 默认值
-        if original_filename:
-            import re
-            week_match = re.search(r'第(\d+)周', original_filename)
-            if week_match:
-                week_number = int(week_match.group(1))
+        # 处理周序号 - 优先使用用户指定的值
+        if user_week_number is not None:
+            week_number = user_week_number
+            logger.info(f"使用用户指定的周序号: {week_number}")
+        else:
+            # 从文件名提取周次 - 支持多种格式
+            week_number = 40  # 默认值
+            if original_filename:
+                import re
+                # 支持多种周次格式：第XX周、周XX、WXX、week XX等
+                week_patterns = [
+                    r'第(\d+)周',      # 第43周
+                    r'周(\d+)',        # 周43
+                    r'W(\d+)',         # W43
+                    r'w(\d+)',         # w43
+                    r'week\s*(\d+)',   # week 43 或 week43
+                    r'Week\s*(\d+)',   # Week 43 或 Week43
+                    r'(\d+)周',        # 43周
+                ]
+                
+                for pattern in week_patterns:
+                    week_match = re.search(pattern, original_filename, re.IGNORECASE)
+                    if week_match:
+                        week_number = int(week_match.group(1))
+                        logger.info(f"从文件名 '{original_filename}' 提取到周次: {week_number}")
+                        break
+                else:
+                    logger.warning(f"无法从文件名 '{original_filename}' 提取周次，使用默认值: {week_number}")
+        
+        # 确保 second_level_organization 字段始终为'四川'
+        result_df['second_level_organization'] = '四川'
+        logger.info("已设置 second_level_organization 字段为'四川'")
         
         result_df['week_number'] = week_number
         
@@ -349,7 +408,8 @@ class DataProcessor:
                 'success': True,
                 'filename': zip_filename,  # 修改为filename以保持一致性
                 'zip_path': zip_path,
-                'file_count': len(output_files)
+                'file_count': len(output_files),
+                'download_url': f'/download/{zip_filename}'
             }
             
         except Exception as e:
@@ -404,7 +464,7 @@ class DataProcessor:
             # 返回默认文件名
             return f"保单第40周变动成本明细表.csv"
 
-    def process_excel_to_csv(self, excel_path, output_path=None, original_filename=None):
+    def process_excel_to_csv(self, excel_path, output_path=None, original_filename=None, user_week_number=None):
         """处理Excel文件转换为CSV，按年度分组输出多个文件"""
         try:
             # 读取Excel文件
@@ -412,8 +472,8 @@ class DataProcessor:
             df = pd.read_excel(excel_path)
             logger.info(f"原始数据: {len(df)} 行, {len(df.columns)} 列")
             
-            # 标准化字段
-            df_standardized = self.standardize_fields(df, original_filename)
+            # 标准化字段，传递用户指定的周序号
+            df_standardized = self.standardize_fields(df, original_filename, user_week_number)
             logger.info(f"标准化后: {len(df_standardized)} 行, {len(df_standardized.columns)} 列")
             
             # 计算绝对值字段
@@ -446,9 +506,21 @@ class DataProcessor:
             else:
                 # 尝试从原始文件名提取周数
                 import re
-                week_match = re.search(r'第(\d+)周', original_filename or excel_path)
-                if week_match:
-                    week_number = int(week_match.group(1))
+                week_patterns = [
+                    r'第(\d+)周',      # 第43周
+                    r'周(\d+)',        # 周43
+                    r'W(\d+)',         # W43
+                    r'w(\d+)',         # w43
+                    r'week\s*(\d+)',   # week 43 或 week43
+                    r'Week\s*(\d+)',   # Week 43 或 Week43
+                    r'(\d+)周',        # 43周
+                ]
+                
+                for pattern in week_patterns:
+                    week_match = re.search(pattern, original_filename or excel_path, re.IGNORECASE)
+                    if week_match:
+                        week_number = int(week_match.group(1))
+                        break
             
             # 为每个年度生成单独的文件
             output_files = []
@@ -478,7 +550,8 @@ class DataProcessor:
                     'year': year,
                     'filename': output_filename,
                     'path': year_output_path,
-                    'row_count': len(year_data)
+                    'row_count': len(year_data),
+                    'download_url': f'/download/{output_filename}'
                 })
                 total_rows += len(year_data)
             
@@ -488,9 +561,10 @@ class DataProcessor:
                     'message': '没有有效的年度数据可以输出'
                 }
 
-            # 创建ZIP压缩包
-            zip_result = self.create_zip_package(output_files, original_filename)
-            
+            zip_package = self.create_zip_package(output_files, original_filename)
+            if not zip_package.get('success'):
+                logger.warning(f"ZIP压缩包创建失败: {zip_package.get('message')}")
+
             return {
                 'success': True,
                 'message': f'成功处理 {total_rows} 行数据，按年度输出 {len(output_files)} 个文件',
@@ -498,7 +572,8 @@ class DataProcessor:
                 'field_count': len(df_final.columns),
                 'total_row_count': total_rows,
                 'years_processed': years,
-                'zip_info': zip_result
+                'week_number': week_number,
+                'zip_package': zip_package if zip_package.get('success') else None
             }
             
         except Exception as e:
@@ -520,31 +595,109 @@ def index():
 def upload_file():
     """文件上传和处理"""
     try:
-        if 'file' not in request.files:
-            return jsonify({'success': False, 'message': '没有选择文件'})
-        
-        file = request.files['file']
-        if file.filename == '':
-            return jsonify({'success': False, 'message': '没有选择文件'})
-        
-        if not file.filename or not file.filename.lower().endswith(('.xlsx', '.xls')):
-            return jsonify({'success': False, 'message': '请上传Excel文件'})
-        
-        # 保存上传的文件
-        filename = secure_filename(file.filename)
+        incoming_files: List = []
+
+        # 兼容前端不同命名的字段
+        for key in ('file', 'files'):
+            file_objects = request.files.getlist(key)
+            for file_storage in file_objects:
+                if file_storage and file_storage.filename:
+                    incoming_files.append(file_storage)
+
+        if not incoming_files:
+            return jsonify({'success': False, 'message': '请至少选择一个需要处理的文件'})
+
+        # 获取用户指定的周序号
+        week_number_raw = request.form.get('week_number') or request.form.get('weekNumber')
+        user_week_number = None
+        if week_number_raw:
+            try:
+                user_week_number = int(week_number_raw)
+                if user_week_number < 1 or user_week_number > 53:
+                    return jsonify({'success': False, 'message': '周序号必须在1-53之间'})
+            except ValueError:
+                return jsonify({'success': False, 'message': '周序号必须是有效数字'})
+
+        client_ids = request.form.getlist('client_ids')
+
+        processed_entries = []
+        aggregated_years = set()
+        total_rows = 0
+        success_count = 0
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        upload_path = os.path.join(UPLOAD_FOLDER, f"{timestamp}_{filename}")
-        file.save(upload_path)
-        
-        # 处理文件
-        result = processor.process_excel_to_csv(upload_path, None, filename)
-        
-        if result['success']:
-            # 只添加ZIP文件下载链接，移除单独文件下载逻辑
-            if 'zip_info' in result and result['zip_info']['success']:
-                result['zip_download_url'] = f'/download/{result["zip_info"]["filename"]}'
-        
-        return jsonify(result)
+
+        for index, file_storage in enumerate(incoming_files, start=1):
+            original_filename = file_storage.filename
+            client_reference = client_ids[index - 1] if index - 1 < len(client_ids) else None
+            if not original_filename.lower().endswith(('.xlsx', '.xls')):
+                processed_entries.append({
+                    'queue_index': index - 1,
+                    'client_id': client_reference,
+                    'original_filename': original_filename,
+                    'status': 'unsupported',
+                    'message': '仅支持Excel文件 (.xlsx / .xls)'
+                })
+                continue
+
+            safe_name = secure_filename(original_filename)
+            upload_filename = f"{timestamp}_{index:02d}_{safe_name}"
+            upload_path = os.path.join(UPLOAD_FOLDER, upload_filename)
+            file_storage.save(upload_path)
+
+            result = processor.process_excel_to_csv(upload_path, None, original_filename, user_week_number)
+
+            entry = {
+                'queue_index': index - 1,
+                'client_id': client_reference,
+                'original_filename': original_filename,
+                'saved_as': upload_filename,
+                'status': 'success' if result.get('success') else 'failed',
+                'message': result.get('message'),
+                'outputs': result.get('output_files') or [],
+                'total_row_count': result.get('total_row_count', 0),
+                'field_count': result.get('field_count', 0),
+                'years_processed': result.get('years_processed') or [],
+                'week_number': result.get('week_number'),
+                'zip_package': result.get('zip_package'),
+                'uploaded_at': timestamp
+            }
+
+            if result.get('success'):
+                success_count += 1
+                total_rows += result.get('total_row_count', 0)
+                aggregated_years.update(entry['years_processed'])
+            else:
+                entry['error'] = result.get('message')
+
+            processed_entries.append(entry)
+
+        failed_count = len(processed_entries) - success_count
+        overall_success = success_count > 0 and failed_count == 0
+
+        resolved_week_number = user_week_number
+        if resolved_week_number is None:
+            for entry in processed_entries:
+                detected_week = entry.get('week_number')
+                if detected_week:
+                    resolved_week_number = detected_week
+                    break
+
+        response_payload = {
+            'success': overall_success,
+            'message': f"成功处理 {success_count} / {len(processed_entries)} 个文件" if processed_entries else '未处理任何文件',
+            'files': processed_entries,
+            'summary': {
+                'total_files': len(processed_entries),
+                'successful': success_count,
+                'failed': failed_count,
+                'total_row_count': total_rows,
+                'years': sorted({int(y) for y in aggregated_years if y is not None and int(y) > 0}),
+                'week_number': resolved_week_number,
+                'generated_at': timestamp
+            }
+        }
+
+        return jsonify(response_payload)
         
     except Exception as e:
         logger.error(f"上传处理出错: {str(e)}")
