@@ -15,11 +15,7 @@
       "dest": "vercel_app.py"
     }
   ],
-  "functions": {
-    "vercel_app.py": {
-      "maxDuration": 60
-    }
-  },
+
   "env": {
     "FLASK_ENV": "production",
     "PYTHON_VERSION": "3.9",
