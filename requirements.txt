@@ -1,5 +1,4 @@
 # Data Forge - 车险变动成本数据处理器
-# Vercel部署优化版本 (v3.0.0)
 
 # Web框架 - 轻量级配置
 Flask>=2.3.0,<3.0.0
@@ -11,7 +10,7 @@ numpy>=1.21.0,<2.0.0
 # Excel文件处理
 openpyxl>=3.0.0
 
-# Web服务器 (Vercel环境)
+# Web服务器
 gunicorn>=20.0.0
 
 # 文件处理和安全

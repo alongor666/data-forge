@@ -61,8 +61,8 @@ git remote add origin https://github.com/your-username/data-forge.git
 # 添加所有文件
 git add .
 
-# 或者选择性添加
-git add app.py vercel_app.py vercel.json requirements.txt templates/ static/
+# 或选择性添加
+git add app.py requirements.txt templates/ static/
 git add *.md *.txt
 ```
 
@@ -73,7 +73,7 @@ git commit -m "🎉 Initial commit: Data Forge - 车险变动成本数据处理�
 
 - Flask Web应用，支持Excel文件处理
 - 智能字段映射和数据转换
-- Vercel Serverless部署优化
+- 不再依赖 Vercel 部署
 - 批量文件上传和处理
 - 27个标准字段规范输出"
 
@@ -98,7 +98,7 @@ git checkout main
 #### 标签管理
 ```bash
 # 创建版本标签
-git tag -a v3.0.0 -m "Vercel部署优化版本"
+git tag -a v3.0.0 -m "Docs与推送流程更新版本"
 git push origin v3.0.0
 ```
 
@@ -149,36 +149,8 @@ SOFTWARE.
 EOF
 ```
 
-### 6. Vercel集成配置
+### 6. 日常验证与排查
 
-#### 安装Vercel GitHub集成
-1. 访问 [Vercel GitHub集成页面](https://github.com/apps/vercel)
-2. 点击 "Configure"
-3. 选择要授权的仓库或 "All repositories"
-4. 保存配置
-
-#### 通过Vercel Dashboard连接
-1. 登录 [Vercel](https://vercel.com)
-2. 点击 "New Project"
-3. 选择 "Import Git Repository"
-4. 找到 `data-forge` 仓库
-5. 点击 "Import"
-6. 配置项目：
-   - Framework Preset: Flask
-   - Root Directory: `./`
-   - Build Command: `echo "No build step required"`
-   - Output Directory: `./`
-7. 点击 "Deploy"
-
-### 7. 自动化部署
-
-#### 启用自动部署
-Vercel默认启用自动部署：
-- 每次推送到`main`分支自动触发部署
-- 部署状态会显示在GitHub的Commit状态中
-- 可以在Pull Request中预览部署效果
-
-#### 部署状态检查
 ```bash
 # 查看远程仓库信息
 git remote -v
@@ -188,22 +160,6 @@ git log --oneline -5
 
 # 查看分支状态
 git status
-```
-
-### 8. 验证部署
-
-#### 检查部署状态
-1. 访问Vercel Dashboard查看部署状态
-2. 检查部署日志是否有错误
-3. 访问提供的 `.vercel.app` 域名测试功能
-
-#### 功能测试
-```bash
-# 测试健康检查端点
-curl https://your-app.vercel.app/health
-
-# 测试主页
-curl https://your-app.vercel.app/
 ```
 
 ## 🔧 常用Git命令
@@ -309,6 +265,6 @@ git push -f origin main
 
 ---
 
-完成这些步骤后，您的代码就会在GitHub上，并且Vercel会自动部署每次更新！
+完成这些步骤后，您的代码就会在 GitHub 上，建议在本地或自有服务器环境运行，不再使用 Vercel。
 
-**下一步**: [Vercel部署指南](VERCEL_DEPLOYMENT.md)
+**下一步**: 在 README 与 QUICK_START 中查看推送与运行流程。

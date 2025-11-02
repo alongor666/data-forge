@@ -85,15 +85,38 @@ gunicorn --bind 0.0.0.0:5000 app:app
 - **本地访问**: http://localhost:5000
 - **网络访问**: http://your-ip:5000
 
-### ☁️ 云端部署
+### ☁️ 部署与推送
 
-#### Vercel 部署 (推荐)
+本项目不再部署到 Vercel。推荐在本地或自有服务器运行，并将代码推送到你自己的 GitHub 仓库。
+
+#### GitHub 首次推送流程（首次创建远程仓库）
 ```bash
-# 安装 Vercel CLI
-npm i -g vercel
+# 1) 在 GitHub 创建空仓库，例如：https://github.com/your-username/data-forge.git
 
-# 部署到 Vercel
-vercel --prod
+# 2) 初始化 Git 仓库（如果尚未初始化）
+git init
+
+# 3) 添加所有文件并提交初次版本
+git add .
+git commit -m "docs: 初始化并更新README，移除Vercel部署"
+
+# 4) 设置主分支为 main（如当前不是 main）
+git branch -M main
+
+# 5) 添加远程并首次推送
+git remote add origin https://github.com/your-username/data-forge.git
+git push -u origin main
+```
+
+#### GitHub 二次及后续推送流程（已有远程仓库）
+```bash
+# 拉取或在本地更新后，执行常规推送
+git add .
+git commit -m "docs: 更新文档与说明"
+git push
+
+# 如需变更远程地址（例如从 fork 切换为自己的仓库）
+git remote set-url origin https://github.com/your-username/data-forge.git
 ```
 
 #### Docker 部署
@@ -187,7 +210,7 @@ data-forge/                              # 项目根目录
 ├── 📄 app.py                           # Flask应用主文件
 ├── 📄 requirements.txt                 # Python依赖清单
 ├── 📄 Procfile                        # Heroku部署配置
-├── 📄 vercel.json                     # Vercel部署配置
+├── 📄 vercel.json                     # 历史保留（不再使用 Vercel）
 ├── 📄 Dockerfile                      # Docker容器配置
 ├── 📁 templates/                      # 模板文件目录
 │   ├── 📄 index.html                  # 主页模板
@@ -399,13 +422,6 @@ conda activate data-forge
 - 考虑分批处理大量数据
 
 ### 🚀 部署问题
-
-**Q: Vercel部署失败？**
-```bash
-# 检查vercel.json配置
-# 确保Python版本兼容
-# 查看部署日志获取详细错误信息
-```
 
 **Q: Docker运行问题？**
 ```bash

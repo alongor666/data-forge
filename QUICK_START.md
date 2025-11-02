@@ -1,38 +1,49 @@
-# 🚀 三分钟快速部署指南
+# 🚀 三分钟快速上手：克隆、运行与推送到 GitHub
 
-## 一键部署到Vercel
+## 1. 克隆或初始化项目
+```bash
+# 克隆已有仓库（示例）
+git clone https://github.com/your-username/data-forge.git
+cd data-forge
 
-### 步骤1：点击部署按钮
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/alongor/data-forge)
-
-### 步骤2：GitHub授权
-1. 点击按钮后会跳转到Vercel
-2. 使用GitHub账号登录（或注册）
-3. 授权Vercel访问您的GitHub仓库
-
-### 步骤3：配置项目
-1. 项目名称：`data-forge`（可自定义）
-2. 环境变量：保持默认即可
-3. 点击 "Deploy" 开始部署
-
-### 步骤4：等待部署完成
-- 部署过程大约需要2-3分钟
-- 部署完成后会显示成功页面
-- 点击 "Visit" 访问您的应用
-
-## 🎉 部署成功！
-
-### 访问您的应用
-部署完成后，您会获得一个类似这样的URL：
-```
-https://data-forge-xxxxx.vercel.app
+# 或在现有目录初始化
+git init
 ```
 
-### 立即开始使用
-1. 上传Excel文件（.xlsx/.xls格式）
-2. 设置周序号（1-53）
-3. 点击"开始处理"
-4. 下载处理后的CSV文件
+## 2. 安装并运行（本地）
+```bash
+# 创建与激活虚拟环境（macOS/Linux）
+python -m venv venv
+source venv/bin/activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动服务
+python app.py
+# 访问 http://127.0.0.1:5000 或 http://127.0.0.1:5001（视配置而定）
+```
+
+## 3. 首次推送到 GitHub
+```bash
+# 在 GitHub 创建空仓库：https://github.com/your-username/data-forge.git
+
+git add .
+git commit -m "docs: 初始化并移除Vercel部署"
+git branch -M main
+git remote add origin https://github.com/your-username/data-forge.git
+git push -u origin main
+```
+
+## 4. 后续推送到 GitHub
+```bash
+git add .
+git commit -m "docs: 更新文档与说明"
+git push
+
+# 如需变更远程地址
+git remote set-url origin https://github.com/your-username/data-forge.git
+```
 
 ## 📋 使用须知
 
@@ -49,14 +60,7 @@ https://data-forge-xxxxx.vercel.app
 
 ## 🔧 自定义配置（可选）
 
-### 绑定自定义域名
-1. 在Vercel Dashboard中选择项目
-2. 进入 "Settings" → "Domains"
-3. 添加您的域名
-4. 配置DNS解析
-
-### 环境变量配置
-如需修改默认配置，在Vercel中添加环境变量：
+### 环境变量示例（本地或自有服务器）
 ```
 FLASK_ENV=production
 MAX_FILE_SIZE=52428800  # 50MB
@@ -65,17 +69,11 @@ MAX_FILE_COUNT=10
 
 ## 🆘 遇到问题？
 
-### 部署失败
-1. 检查GitHub仓库是否公开
-2. 确认requirements.txt文件存在
-3. 查看Vercel部署日志
-4. 重新尝试部署
-
-### 应用无法访问
-1. 检查网络连接
-2. 确认URL正确
-3. 查看Vercel函数日志
-4. 联系技术支持
+### 推送失败
+1. 检查 Git 远程地址是否正确
+2. 确认已在 GitHub 创建目标仓库
+3. 查看 `git status` 与 `git log` 获取详细信息
+4. 重试或更换网络环境
 
 ### 文件处理错误
 1. 确认文件格式正确
@@ -112,6 +110,6 @@ MAX_FILE_COUNT=10
 
 ---
 
-**🎊 恭喜！您现在拥有了一个功能完整的数据处理工具！**
+**🎊 恭喜！您现在拥有了一个功能完整的数据处理工具（无需 Vercel）！**
 
 **💡 提示**：建议收藏部署后的URL，方便日常使用。

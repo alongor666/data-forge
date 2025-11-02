@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Database预处理</title>
+    <meta name="description" content="Database预处理：数据预处理工作台，极速上传、精准清洗、可信输出。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+  </head>
+  <body>
+    <div class="bg-canvas" aria-hidden="true">
+      <div class="orb orb-one"></div>
+      <div class="orb orb-two"></div>
+      <div class="orb orb-three"></div>
+    </div>
+
+    <header class="hero">
+      <div class="hero__content">
+        <h1 class="hero__title">Database预处理</h1>
+        <div class="hero__stats">
+          <div class="stat">
+            <span class="stat__value">≤ 50 MB</span>
+            <span class="stat__label">单次极速上传</span>
+          </div>
+          <div class="stat">
+            <span class="stat__value">27 项</span>
+            <span class="stat__label">字段规范保障</span>
+          </div>
+          <div class="stat">
+            <span class="stat__value">多年度</span>
+            <span class="stat__label">智能拆分导出</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel--primary" id="panelUpload">
+        <div class="panel__header">
+          <div>
+            <span class="panel__eyebrow">步骤一</span>
+            <h2 class="panel__title">上传保单数据文件</h2>
+            <p class="panel__description">支持批量上传多份 Excel，系统自动识别年度、周次与字段标准，保障输出与模板一致。</p>
+          </div>
+          <div class="badge badge--glow">智能质检</div>
+        </div>
+
+        <div class="panel__body">
+          <div class="upload-grid">
+            <div class="dropzone" id="dropZone">
+              <input type="file" id="fileInput" accept=".xlsx,.xls" multiple hidden />
+              <div class="dropzone__content">
+                <div class="dropzone__icon">⬆️</div>
+                <h3 class="dropzone__title">拖放文件到此区域，或点击上传</h3>
+                <p class="dropzone__subtitle">支持 .xlsx / .xls，自动校验字段、自动分年度导出</p>
+                <div class="dropzone__actions">
+                  <button type="button" class="btn btn--primary" id="triggerFileInput">选择文件</button>
+                  <button type="button" class="btn btn--ghost" id="sampleLink">查看模板规范</button>
+                </div>
+                <div class="upload-limits">
+                  <div class="limit-item">单文件 ≤ 50MB</div>
+                  <div class="limit-item">批量 ≤ 10个文件</div>
+                  <div class="limit-item">格式：.xlsx / .xls</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="upload-meta">
+              <div class="meta-block">
+                <span class="meta-block__eyebrow">文件队列 <span style="font-size: 0.85em; opacity: 0.7;">(为每个文件设置周序号)</span></span>
+                <div class="file-stats" id="fileStats" style="margin-top: 8px;"></div>
+                <div class="meta-block meta-block--inline" style="margin-top: 12px;">
+                  <button type="button" class="btn btn--primary" id="actionProcess" disabled>开始处理</button>
+                  <button type="button" class="btn btn--ghost" id="actionClear" disabled>清空列表</button>
+                </div>
+                <div id="fileQueue" class="file-queue is-empty" role="list" style="margin-top: 16px;">尚未选择文件</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel--result is-hidden" id="resultPanel">
+        <div class="panel__header">
+          <div>
+            <span class="panel__eyebrow">步骤二</span>
+            <h2 class="panel__title">实时处理追踪</h2>
+            <p class="panel__description">处理完成后，即刻下载年度拆分的高质量 CSV，或一键打包成 ZIP。</p>
+          </div>
+          <div class="badge badge--accent" id="resultBadge">等待上传</div>
+        </div>
+        <div class="panel__body">
+          <div id="sessionSummary" class="session-summary" aria-live="polite"></div>
+          <div id="fileResults" class="result-grid"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <div class="footer__content">
+        <span>© {{ '%Y' | strftime }} Database预处理</span>
+        <a href="mailto:dataops@example.com" class="footer__link">联系数据运营团队</a>
+      </div>
+    </footer>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const triggerFileInput = document.getElementById('triggerFileInput');
+        const sampleLink = document.getElementById('sampleLink');
+        const fileQueueEl = document.getElementById('fileQueue');
+        const processBtn = document.getElementById('actionProcess');
+        const clearBtn = document.getElementById('actionClear');
+        const weekField = document.getElementById('weekNumber');
+        const resultPanel = document.getElementById('resultPanel');
+        const sessionSummary = document.getElementById('sessionSummary');
+        const fileResults = document.getElementById('fileResults');
+        const resultBadge = document.getElementById('resultBadge');
+
+        const toastHost = document.createElement('div');
+        toastHost.className = 'toast-host';
+        document.body.appendChild(toastHost);
+
+        const state = {
+          files: [],
+          processing: false,
+          counter: 0,
+          maxFileSize: 50 * 1024 * 1024, // 50MB
+          maxFileCount: 10
+        };
+
+        // 从文件名提取周序号的函数
+        function extractWeekNumber(filename) {
+          // 支持多种格式: 第XX周、周XX、WXX、week XX等
+          const patterns = [
+            /第\s*(\d+)\s*周/i,
+            /周\s*(\d+)/i,
+            /W(\d+)/i,
+            /week\s*(\d+)/i,
+            /_W(\d+)_/i,
+            /-W(\d+)-/i
+          ];
+
+          for (const pattern of patterns) {
+            const match = filename.match(pattern);
+            if (match && match[1]) {
+              const weekNum = parseInt(match[1]);
+              if (weekNum >= 1 && weekNum <= 53) {
+                return weekNum;
+              }
+            }
+          }
+          return null; // 未识别到有效周序号
+        }
+
+        const statusClassMap = {
+          queued: 'status-pill--queued',
+          processing: 'status-pill--processing',
+          success: 'status-pill--success',
+          failed: 'status-pill--error',
+          error: 'status-pill--error',
+          unsupported: 'status-pill--warning'
+        };
+
+        const statusLabelMap = {
+          queued: '待处理',
+          processing: '处理中',
+          success: '处理完成',
+          failed: '处理失败',
+          error: '处理失败',
+          unsupported: '类型不支持'
+        };
+
+        const badgeModes = ['badge--processing', 'badge--success', 'badge--error', 'badge--idle', 'badge--warning'];
+
+        function formatBytes(bytes) {
+          if (!Number.isFinite(bytes) || bytes <= 0) return '—';
+          const units = ['B', 'KB', 'MB', 'GB'];
+          const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+          const value = bytes / Math.pow(1024, exp);
+          return `${value.toFixed(exp === 0 ? 0 : 1)} ${units[exp]}`;
+        }
+
+        function formatNumber(value) {
+          if (value === undefined || value === null) return '—';
+          return new Intl.NumberFormat('zh-CN').format(value);
+        }
+
+        function showToast(message, variant = 'info') {
+          const toast = document.createElement('div');
+          toast.className = `toast toast--${variant}`;
+          toast.textContent = message;
+          toastHost.appendChild(toast);
+          setTimeout(() => {
+            toast.classList.add('is-leaving');
+            setTimeout(() => toast.remove(), 320);
+          }, 3200);
+        }
+
+        function setBadge(mode, text) {
+          resultBadge.textContent = text;
+          resultBadge.classList.remove(...badgeModes);
+          switch (mode) {
+            case 'processing':
+              resultBadge.classList.add('badge--processing');
+              break;
+            case 'success':
+              resultBadge.classList.add('badge--success');
+              break;
+            case 'warning':
+              resultBadge.classList.add('badge--warning');
+              break;
+            case 'error':
+              resultBadge.classList.add('badge--error');
+              break;
+            default:
+              resultBadge.classList.add('badge--idle');
+          }
+        }
+
+        function updateControls() {
+          const hasProcessable = state.files.some(file => file.status === 'queued');
+          processBtn.disabled = state.processing || !hasProcessable;
+          clearBtn.disabled = state.processing || state.files.length === 0;
+          updateFileStats();
+        }
+
+        function updateFileStats() {
+          const fileStats = document.getElementById('fileStats');
+          if (state.files.length === 0) {
+            fileStats.innerHTML = '';
+            return;
+          }
+
+          const totalSize = state.files.reduce((sum, entry) => sum + entry.file.size, 0);
+          const validFiles = state.files.filter(entry => entry.status === 'queued').length;
+          const invalidFiles = state.files.length - validFiles;
+
+          let statsHtml = `<div style="font-size: 13px; color: var(--text-muted);">`;
+          statsHtml += `共 ${state.files.length} 个文件，总计 ${formatBytes(totalSize)}`;
+          
+          if (invalidFiles > 0) {
+            statsHtml += `，<span style="color: var(--error);">${invalidFiles} 个无效</span>`;
+          }
+          
+          if (validFiles > 0) {
+            statsHtml += `，<span style="color: var(--success);">${validFiles} 个可处理</span>`;
+          }
+
+          statsHtml += `</div>`;
+
+          // 添加大小警告
+          if (totalSize > 30 * 1024 * 1024) {
+            statsHtml += `<div style="font-size: 12px; color: var(--warning); margin-top: 4px;">⚠️ 文件较大，处理时间可能较长</div>`;
+          }
+
+          fileStats.innerHTML = statsHtml;
+        }
+
+        function renderQueue() {
+          fileQueueEl.innerHTML = '';
+          if (state.files.length === 0) {
+            fileQueueEl.classList.add('is-empty');
+            fileQueueEl.textContent = '尚未选择文件';
+            updateControls();
+            return;
+          }
+
+          fileQueueEl.classList.remove('is-empty');
+
+          // 创建表格
+          const table = document.createElement('div');
+          table.className = 'file-table';
+
+          // 创建表头
+          const header = document.createElement('div');
+          header.className = 'file-table__header';
+
+          const headerRow = document.createElement('div');
+          headerRow.className = 'file-table__header-row';
+          headerRow.innerHTML = `
+            <div class="file-table__header-cell">上传文件</div>
+            <div class="file-table__header-cell file-table__header-cell--center">格式</div>
+            <div class="file-table__header-cell file-table__header-cell--right">大小</div>
+            <div class="file-table__header-cell file-table__header-cell--center">状态</div>
+            <div class="file-table__header-cell file-table__header-cell--center">周序号</div>
+            <div class="file-table__header-cell file-table__header-cell--center">操作</div>
+          `;
+          header.appendChild(headerRow);
+          table.appendChild(header);
+
+          // 创建表体
+          const tbody = document.createElement('div');
+          tbody.className = 'file-table__body';
+
+          state.files.forEach(entry => {
+            const row = document.createElement('div');
+            row.className = 'file-table__row';
+            row.dataset.id = entry.id;
+
+            // 文件名单元格
+            const nameCell = document.createElement('div');
+            nameCell.className = 'file-table__cell';
+            const fileName = document.createElement('div');
+            fileName.className = 'file-name';
+            fileName.innerHTML = `
+              <span class="file-name__icon">📄</span>
+              <span class="file-name__text" title="${entry.file.name}">${entry.file.name}</span>
+            `;
+            nameCell.appendChild(fileName);
+
+            // 格式单元格
+            const formatCell = document.createElement('div');
+            formatCell.className = 'file-table__cell file-table__cell--center';
+            const fileFormat = document.createElement('span');
+            fileFormat.className = 'file-format';
+            fileFormat.textContent = entry.file.name.slice(entry.file.name.lastIndexOf('.')).toLowerCase();
+            formatCell.appendChild(fileFormat);
+
+            // 大小单元格
+            const sizeCell = document.createElement('div');
+            sizeCell.className = 'file-table__cell file-table__cell--right';
+            const fileSize = document.createElement('span');
+            fileSize.className = 'file-size';
+            fileSize.textContent = formatBytes(entry.file.size);
+            sizeCell.appendChild(fileSize);
+
+            // 状态单元格
+            const statusCell = document.createElement('div');
+            statusCell.className = 'file-table__cell file-table__cell--center';
+            const status = document.createElement('span');
+            status.className = `status-pill ${statusClassMap[entry.status] || statusClassMap.queued}`;
+            status.textContent = statusLabelMap[entry.status] || statusLabelMap.queued;
+            statusCell.appendChild(status);
+
+            // 周序号单元格
+            const weekCell = document.createElement('div');
+            weekCell.className = 'file-table__cell file-table__cell--center';
+            const weekWrapper = document.createElement('div');
+            weekWrapper.className = 'week-input-wrapper';
+
+            const weekInput = document.createElement('input');
+            weekInput.type = 'number';
+            weekInput.className = 'week-number-input';
+            weekInput.id = `week-${entry.id}`;
+            weekInput.min = '1';
+            weekInput.max = '53';
+            weekInput.placeholder = '1-53';
+            weekInput.value = entry.weekNumber || '';
+            weekInput.required = true;
+            weekInput.disabled = state.processing;
+
+            weekInput.addEventListener('input', (e) => {
+              const value = parseInt(e.target.value);
+              if (value >= 1 && value <= 53) {
+                entry.weekNumber = value;
+              } else {
+                entry.weekNumber = null;
+              }
+              updateControls();
+            });
+
+            weekWrapper.appendChild(weekInput);
+
+            if (entry.autoDetected) {
+              const hint = document.createElement('span');
+              hint.className = 'week-auto-hint';
+              hint.textContent = '✓';
+              hint.title = '已自动识别';
+              weekWrapper.appendChild(hint);
+            }
+
+            weekCell.appendChild(weekWrapper);
+
+            // 操作单元格
+            const actionsCell = document.createElement('div');
+            actionsCell.className = 'file-table__cell file-table__cell--center';
+            const actionsWrapper = document.createElement('div');
+            actionsWrapper.className = 'file-actions';
+
+            if (!state.processing && entry.status !== 'processing') {
+              const removeBtn = document.createElement('button');
+              removeBtn.type = 'button';
+              removeBtn.className = 'btn-remove';
+              removeBtn.setAttribute('data-remove-id', entry.id);
+              removeBtn.setAttribute('aria-label', `移除 ${entry.file.name}`);
+              removeBtn.textContent = '×';
+              actionsWrapper.appendChild(removeBtn);
+            }
+
+            actionsCell.appendChild(actionsWrapper);
+
+            // 添加所有单元格到行
+            row.appendChild(nameCell);
+            row.appendChild(formatCell);
+            row.appendChild(sizeCell);
+            row.appendChild(statusCell);
+            row.appendChild(weekCell);
+            row.appendChild(actionsCell);
+
+            tbody.appendChild(row);
+          });
+
+          table.appendChild(tbody);
+          fileQueueEl.appendChild(table);
+
+          updateControls();
+        }
+
+        function resetResults() {
+          sessionSummary.innerHTML = '';
+          fileResults.innerHTML = '';
+        }
+
+        function renderSummary(summary) {
+          sessionSummary.innerHTML = '';
+
+          const config = [
+            { label: '总文件数', value: formatNumber(summary.total_files) },
+            { label: '成功文件', value: formatNumber(summary.successful) },
+            { label: '合计行数', value: formatNumber(summary.total_row_count) },
+            { label: '涉及年度', value: summary.years && summary.years.length ? summary.years.join('、') : '自动识别' },
+            { label: '周序号', value: summary.week_number ? `第 ${String(summary.week_number).padStart(2, '0')} 周` : '文件自动推断' }
+          ];
+
+          config.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'summary-card';
+
+            const value = document.createElement('div');
+            value.className = 'summary-card__value';
+            value.textContent = item.value;
+
+            const label = document.createElement('div');
+            label.className = 'summary-card__label';
+            label.textContent = item.label;
+
+            card.appendChild(value);
+            card.appendChild(label);
+            sessionSummary.appendChild(card);
+          });
+        }
+
+        function buildStatusPill(status) {
+          const pill = document.createElement('span');
+          pill.className = `status-pill ${statusClassMap[status] || statusClassMap.queued}`;
+          pill.textContent = statusLabelMap[status] || statusLabelMap.queued;
+          return pill;
+        }
+
+        function renderResults(files) {
+          fileResults.innerHTML = '';
+
+          files.forEach(file => {
+            const card = document.createElement('article');
+            card.className = 'result-card';
+
+            const header = document.createElement('div');
+            header.className = 'result-card__header';
+
+            const title = document.createElement('h3');
+            title.className = 'result-card__title';
+            title.textContent = file.original_filename;
+
+            const status = buildStatusPill(file.status);
+
+            header.appendChild(title);
+            header.appendChild(status);
+            card.appendChild(header);
+
+            const meta = document.createElement('div');
+            meta.className = 'result-card__meta';
+
+            meta.appendChild(createMetaChip('输出表数', formatNumber(file.outputs ? file.outputs.length : 0)));
+            meta.appendChild(createMetaChip('行数', formatNumber(file.total_row_count)));
+
+            if (file.years_processed && file.years_processed.length) {
+              meta.appendChild(createMetaChip('年度', file.years_processed.join('、')));
+            }
+
+            if (file.week_number) {
+              meta.appendChild(createMetaChip('周次', `第 ${String(file.week_number).padStart(2, '0')} 周`));
+            }
+
+            card.appendChild(meta);
+
+            if (file.outputs && file.outputs.length) {
+              const outputList = document.createElement('div');
+              outputList.className = 'output-list';
+
+              file.outputs.forEach(output => {
+                const anchor = document.createElement('a');
+                anchor.className = 'output-link';
+                anchor.href = output.download_url || '#';
+                anchor.textContent = output.filename;
+                anchor.setAttribute('download', output.filename);
+
+                const span = document.createElement('span');
+                span.className = 'output-meta';
+                span.textContent = `${formatNumber(output.row_count || 0)} 行`;
+                anchor.appendChild(span);
+
+                outputList.appendChild(anchor);
+              });
+
+              card.appendChild(outputList);
+            }
+
+            const footer = document.createElement('div');
+            footer.className = 'result-card__footer';
+
+            const feedback = document.createElement('p');
+            feedback.className = 'feedback';
+            feedback.textContent = file.message || (file.status === 'success' ? '处理完成，已保存至“处理后”目录。' : '运行结果见上方状态。');
+
+            const actions = document.createElement('div');
+            actions.className = 'result-card__actions';
+
+            if (file.zip_package && file.zip_package.download_url) {
+              const zipBtn = document.createElement('a');
+              zipBtn.className = 'btn btn--ghost';
+              zipBtn.href = file.zip_package.download_url;
+              zipBtn.textContent = `下载 ZIP（${file.zip_package.file_count || 0} 文件）`;
+              zipBtn.setAttribute('download', file.zip_package.filename);
+              actions.appendChild(zipBtn);
+            }
+
+            footer.appendChild(feedback);
+            footer.appendChild(actions);
+            card.appendChild(footer);
+
+            if (file.status === 'failed' || file.status === 'error') {
+              const errorNote = document.createElement('p');
+              errorNote.className = 'feedback';
+              errorNote.textContent = file.message || '处理失败，请检查源文件格式后重试。';
+              card.appendChild(errorNote);
+            }
+
+            if (file.status === 'unsupported') {
+              const warning = document.createElement('p');
+              warning.className = 'feedback';
+              warning.textContent = file.message || '文件类型暂不支持，请上传 Excel 格式。';
+              card.appendChild(warning);
+            }
+
+            fileResults.appendChild(card);
+          });
+        }
+
+        function createMetaChip(label, value) {
+          const chip = document.createElement('span');
+          chip.className = 'meta-chip';
+          chip.textContent = `${label} · ${value}`;
+          return chip;
+        }
+
+        function setProcessing(isProcessing) {
+          state.processing = isProcessing;
+          triggerFileInput.disabled = isProcessing;
+          fileInput.disabled = isProcessing;
+          processBtn.disabled = isProcessing;
+          clearBtn.disabled = isProcessing;
+          dropZone.classList.toggle('is-disabled', isProcessing);
+          dropZone.setAttribute('aria-busy', String(isProcessing));
+        }
+
+        function addFiles(fileList) {
+          const incoming = Array.from(fileList);
+          if (!incoming.length) return;
+
+          // 文件验证统计
+          let validFiles = [];
+          let sizeErrors = [];
+          let formatErrors = [];
+          let duplicateFiles = [];
+
+          incoming.forEach(file => {
+            // 检查文件大小限制
+            if (file.size > state.maxFileSize) {
+              sizeErrors.push({name: file.name, size: file.size});
+              return;
+            }
+
+            // 检查文件格式
+            if (!/\.(xlsx|xls)$/i.test(file.name)) {
+              formatErrors.push(file.name);
+              return;
+            }
+
+            // 检查重复文件
+            const duplicate = state.files.find(entry => entry.file.name === file.name && entry.file.size === file.size);
+            if (duplicate) {
+              duplicateFiles.push(file.name);
+              return;
+            }
+
+            validFiles.push(file);
+          });
+
+          // 显示错误提示
+          if (sizeErrors.length > 0) {
+            const fileList = sizeErrors.slice(0, 3).map(f => `"${f.name}" (${formatBytes(f.size)})`).join(', ');
+            const moreCount = sizeErrors.length - 3;
+            const moreText = moreCount > 0 ? ` 等 ${moreCount} 个文件` : '';
+            showToast(`文件大小超限: ${fileList}${moreText}，单文件最大支持 ${formatBytes(state.maxFileSize)}`, 'error');
+          }
+
+          if (formatErrors.length > 0) {
+            const fileList = formatErrors.slice(0, 3).join(', ');
+            const moreCount = formatErrors.length - 3;
+            const moreText = moreCount > 0 ? ` 等 ${moreCount} 个文件` : '';
+            showToast(`格式不支持: ${fileList}${moreText}，仅支持 Excel 文件(.xlsx/.xls)`, 'warning');
+          }
+
+          if (duplicateFiles.length > 0) {
+            const fileList = duplicateFiles.slice(0, 3).join(', ');
+            const moreCount = duplicateFiles.length - 3;
+            const moreText = moreCount > 0 ? ` 等 ${moreCount} 个文件` : '';
+            showToast(`已存在同名文件: ${fileList}${moreText}`, 'warning');
+          }
+
+          // 检查文件数量限制
+          const totalFiles = state.files.length + validFiles.length;
+          if (totalFiles > state.maxFileCount) {
+            const canAdd = Math.max(0, state.maxFileCount - state.files.length);
+            if (canAdd > 0) {
+              validFiles = validFiles.slice(0, canAdd);
+              showToast(`文件数量超限！最多允许 ${state.maxFileCount} 个文件，已为您保留前 ${canAdd} 个有效文件`, 'warning');
+            } else {
+              showToast(`文件数量超限！最多允许 ${state.maxFileCount} 个文件，当前已选择 ${state.files.length} 个`, 'error');
+              return;
+            }
+          }
+
+          // 添加有效文件
+          validFiles.forEach(file => {
+            // 尝试从文件名自动提取周序号
+            const detectedWeek = extractWeekNumber(file.name);
+
+            const entry = {
+              id: `file-${++state.counter}`,
+              file,
+              status: 'queued',
+              weekNumber: detectedWeek,
+              autoDetected: detectedWeek !== null
+            };
+
+            if (detectedWeek) {
+              showToast(`已自动识别周序号: 第${detectedWeek}周 - ${file.name}`, 'success');
+            }
+
+            state.files.push(entry);
+          });
+
+          renderQueue();
+        }
+
+        function removeFile(id) {
+          state.files = state.files.filter(entry => entry.id !== id);
+          renderQueue();
+        }
+
+        function clearFiles() {
+          state.files = [];
+          renderQueue();
+          resetResults();
+          setBadge('idle', '等待上传');
+          resultPanel.classList.add('is-hidden');
+        }
+
+        function handleServerResponse(payload) {
+          if (!payload || !payload.files) {
+            throw new Error('服务器未返回有效数据');
+          }
+
+          payload.files.forEach(file => {
+            const entry = state.files.find(item => item.id === file.client_id) || state.files[file.queue_index];
+            if (!entry) return;
+
+            const mappedStatus = statusClassMap[file.status] ? file.status : 'failed';
+            entry.status = mappedStatus;
+            entry.message = file.message;
+            entry.result = file;
+          });
+
+          renderQueue();
+          renderSummary(payload.summary || {});
+          renderResults(payload.files);
+
+          const failed = payload.summary ? payload.summary.failed : 0;
+          const succeeded = payload.summary ? payload.summary.successful : 0;
+          let badgeMode = 'success';
+          let badgeText = payload.message || '全部文件处理完成';
+
+          if (failed > 0 && succeeded > 0) {
+            badgeMode = 'warning';
+            badgeText = payload.message || '部分文件处理异常';
+          } else if (failed > 0 && succeeded === 0) {
+            badgeMode = 'error';
+            badgeText = payload.message || '处理失败';
+          }
+
+          setBadge(badgeMode, badgeText);
+          resultPanel.classList.remove('is-hidden');
+        }
+
+        function validateBeforeUpload() {
+          const processable = state.files.filter(file => file.status === 'queued');
+          
+          if (!processable.length) {
+            showToast('请先添加至少一个 Excel 文件', 'info');
+            return false;
+          }
+
+          // 验证每个文件都有周序号
+          const missingWeek = processable.filter(entry => !entry.weekNumber || entry.weekNumber < 1 || entry.weekNumber > 53);
+          if (missingWeek.length > 0) {
+            showToast(`请为所有文件设置有效的周序号(1-53)。缺失周序号的文件: ${missingWeek.length} 个`, 'warning');
+            return false;
+          }
+
+          // 显示上传确认信息
+          const totalSize = processable.reduce((sum, file) => sum + file.file.size, 0);
+          const sizeWarning = totalSize > 30 * 1024 * 1024; // 30MB以上显示警告
+          
+          if (sizeWarning) {
+            const confirmMessage = `即将上传 ${processable.length} 个文件，总大小 ${formatBytes(totalSize)}\n\n` +
+                                 `建议：\n` +
+                                 `• 大文件处理可能需要更长时间\n` +
+                                 `• 确保网络连接稳定\n\n` +
+                                 `确认开始处理？`;
+            
+            if (!confirm(confirmMessage)) {
+              return false;
+            }
+          }
+
+          return true;
+        }
+
+        async function processFiles() {
+          if (!validateBeforeUpload()) {
+            return;
+          }
+
+          const processable = state.files.filter(file => file.status === 'queued');
+
+          setProcessing(true);
+          processable.forEach(file => {
+            file.status = 'processing';
+          });
+          renderQueue();
+          resetResults();
+          resultPanel.classList.remove('is-hidden');
+          setBadge('processing', '处理中');
+
+          const placeholderCard = document.createElement('div');
+          placeholderCard.className = 'summary-card';
+          const placeholderValue = document.createElement('div');
+          placeholderValue.className = 'summary-card__value';
+          placeholderValue.textContent = '⏱';
+          const placeholderLabel = document.createElement('div');
+          placeholderLabel.className = 'summary-card__label';
+          placeholderLabel.textContent = '正在处理';
+          placeholderCard.appendChild(placeholderValue);
+          placeholderCard.appendChild(placeholderLabel);
+          sessionSummary.appendChild(placeholderCard);
+
+          const formData = new FormData();
+          processable.forEach(entry => {
+            formData.append('file', entry.file);
+            formData.append('client_ids', entry.id);
+            // 为每个文件单独发送周序号
+            formData.append('week_numbers', entry.weekNumber);
+          });
+
+          try {
+            const response = await fetch('/upload', {
+              method: 'POST',
+              body: formData
+            });
+
+            if (!response.ok) {
+              throw new Error(`服务器返回状态 ${response.status}`);
+            }
+
+            const payload = await response.json();
+
+            if (!payload.success) {
+              showToast(payload.message || '部分文件处理失败', 'warning');
+            } else {
+              showToast(payload.message || '全部文件处理完成', 'success');
+            }
+
+            handleServerResponse(payload);
+          } catch (error) {
+            console.error('处理失败:', error);
+            showToast(`处理失败：${error.message}`, 'error');
+            setBadge('error', '处理失败');
+
+            state.files.forEach(file => {
+              if (file.status === 'processing') {
+                file.status = 'failed';
+                file.message = error.message;
+              }
+            });
+            renderQueue();
+          } finally {
+            setProcessing(false);
+            updateControls();
+          }
+        }
+
+        // 事件绑定
+        triggerFileInput.addEventListener('click', () => fileInput.click());
+
+        sampleLink.addEventListener('click', () => {
+          showToast('请参阅项目根目录下的《处理规范.md》了解字段说明。', 'info');
+        });
+
+        fileInput.addEventListener('change', event => {
+          addFiles(event.target.files);
+          fileInput.value = '';
+        });
+
+        dropZone.addEventListener('dragover', event => {
+          event.preventDefault();
+          dropZone.classList.add('is-dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+          dropZone.classList.remove('is-dragover');
+        });
+
+        dropZone.addEventListener('drop', event => {
+          event.preventDefault();
+          dropZone.classList.remove('is-dragover');
+          addFiles(event.dataTransfer.files);
+        });
+
+        fileQueueEl.addEventListener('click', event => {
+          const target = event.target;
+          if (target.matches('[data-remove-id]')) {
+            const id = target.getAttribute('data-remove-id');
+            removeFile(id);
+          }
+        });
+
+        clearBtn.addEventListener('click', () => {
+          if (state.files.length === 0) return;
+          clearFiles();
+          showToast('已清空文件队列', 'info');
+        });
+
+        processBtn.addEventListener('click', () => {
+          if (!state.processing) {
+            processFiles();
+          }
+        });
+
+        setBadge('idle', '等待上传');
+        updateControls();
+        renderQueue();
+      });
+    </script>
+  </body>
+</html>
