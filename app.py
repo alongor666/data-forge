@@ -15,21 +15,35 @@ from werkzeug.utils import secure_filename
 import logging
 from datetime import datetime
 from typing import List
+import tempfile
 
 # 配置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-APP_NAME = "Data Forge · 车险变动成本实验室"
+APP_NAME = "Database预处理"
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB限制
 
-# 目录配置
-UPLOAD_FOLDER = 'uploads'
-OUTPUT_FOLDER = '处理后'
+# 目录配置 - 适配Vercel的临时目录
+IS_VERCEL = os.environ.get('VERCEL_ENV') == 'production'
+if IS_VERCEL:
+    # Vercel环境使用系统临时目录
+    temp_dir = tempfile.gettempdir()
+    UPLOAD_FOLDER = os.path.join(temp_dir, 'uploads')
+    OUTPUT_FOLDER = os.path.join(temp_dir, '处理后')
+else:
+    # 本地环境使用相对目录
+    UPLOAD_FOLDER = 'uploads'
+    OUTPUT_FOLDER = '处理后'
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+
+logger.info(f"运行环境: {'Vercel Serverless' if IS_VERCEL else '本地开发'}")
+logger.info(f"上传目录: {UPLOAD_FOLDER}")
+logger.info(f"输出目录: {OUTPUT_FOLDER}")
 
 
 @app.context_processor
@@ -365,19 +379,20 @@ class DataProcessor:
             logger.error(f"最终输出处理出错: {str(e)}")
             raise
 
-    def create_zip_package(self, output_files, original_filename=None):
+    def create_zip_package(self, output_files, original_filename=None, week_number=None):
         """
         创建包含所有CSV文件的ZIP压缩包
         """
         try:
-            # 从原始文件名提取周次信息
-            week_number = 40  # 默认值
-            if original_filename:
-                import re
-                week_match = re.search(r'第(\d+)周', original_filename)
-                if week_match:
-                    week_number = int(week_match.group(1))
-            
+            # 优先使用传入的周序号,其次从文件名提取,最后使用默认值
+            if week_number is None:
+                week_number = 40  # 默认值
+                if original_filename:
+                    import re
+                    week_match = re.search(r'第(\d+)周', original_filename)
+                    if week_match:
+                        week_number = int(week_match.group(1))
+
             # 生成ZIP文件名
             if len(output_files) > 1:
                 years = [file_info['year'] for file_info in output_files]
@@ -561,7 +576,7 @@ class DataProcessor:
                     'message': '没有有效的年度数据可以输出'
                 }
 
-            zip_package = self.create_zip_package(output_files, original_filename)
+            zip_package = self.create_zip_package(output_files, original_filename, week_number)
             if not zip_package.get('success'):
                 logger.warning(f"ZIP压缩包创建失败: {zip_package.get('message')}")
 
@@ -589,12 +604,31 @@ processor = DataProcessor()
 @app.route('/')
 def index():
     """主页"""
+    # 添加健康检查端点，用于Vercel预热
     return render_template('index.html')
+
+@app.route('/health')
+def health_check():
+    """健康检查端点，用于Vercel预热和监控"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.now().isoformat(),
+        'version': '3.0.0',
+        'environment': 'vercel' if IS_VERCEL else 'local'
+    })
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
     """文件上传和处理"""
     try:
+        # 检查请求大小
+        content_length = request.content_length
+        if content_length and content_length > app.config['MAX_CONTENT_LENGTH']:
+            return jsonify({
+                'success': False, 
+                'message': f'上传的总文件大小超限！最大支持 {app.config["MAX_CONTENT_LENGTH"] // (1024*1024)}MB，当前请求大小为 {content_length // (1024*1024)}MB'
+            }), 413
+
         incoming_files: List = []
 
         # 兼容前端不同命名的字段
@@ -607,18 +641,42 @@ def upload_file():
         if not incoming_files:
             return jsonify({'success': False, 'message': '请至少选择一个需要处理的文件'})
 
-        # 获取用户指定的周序号
-        week_number_raw = request.form.get('week_number') or request.form.get('weekNumber')
-        user_week_number = None
-        if week_number_raw:
-            try:
-                user_week_number = int(week_number_raw)
-                if user_week_number < 1 or user_week_number > 53:
-                    return jsonify({'success': False, 'message': '周序号必须在1-53之间'})
-            except ValueError:
-                return jsonify({'success': False, 'message': '周序号必须是有效数字'})
+        # 获取每个文件的周序号列表
+        week_numbers_list = request.form.getlist('week_numbers')
+
+        # 调试日志
+        logger.info(f"📝 接收到 {len(incoming_files)} 个文件")
+        logger.info(f"📝 week_numbers原始列表: {week_numbers_list}")
+        logger.info(f"📝 request.form所有内容: {dict(request.form)}")
+
+        # 兼容旧版本:如果没有week_numbers,尝试获取统一的week_number
+        if not week_numbers_list:
+            week_number_raw = request.form.get('week_number') or request.form.get('weekNumber')
+            if week_number_raw:
+                try:
+                    unified_week = int(week_number_raw)
+                    if unified_week < 1 or unified_week > 53:
+                        return jsonify({'success': False, 'message': '周序号必须在1-53之间'})
+                    week_numbers_list = [str(unified_week)] * len(incoming_files)
+                except ValueError:
+                    return jsonify({'success': False, 'message': '周序号必须是有效数字'})
+
+        # 验证周序号列表长度匹配文件数量
+        if len(week_numbers_list) != len(incoming_files):
+            return jsonify({
+                'success': False,
+                'message': f'周序号数量({len(week_numbers_list)})与文件数量({len(incoming_files)})不匹配'
+            })
 
         client_ids = request.form.getlist('client_ids')
+
+        # 检查文件数量限制
+        max_files = 10  # 设置合理的文件数量限制
+        if len(incoming_files) > max_files:
+            return jsonify({
+                'success': False, 
+                'message': f'文件数量超限！最多允许 {max_files} 个文件，当前选择了 {len(incoming_files)} 个文件'
+            }), 400
 
         processed_entries = []
         aggregated_years = set()
@@ -629,6 +687,30 @@ def upload_file():
         for index, file_storage in enumerate(incoming_files, start=1):
             original_filename = file_storage.filename
             client_reference = client_ids[index - 1] if index - 1 < len(client_ids) else None
+
+            # 获取该文件的周序号
+            file_week_number = None
+            if index - 1 < len(week_numbers_list):
+                try:
+                    file_week_number = int(week_numbers_list[index - 1])
+                    if file_week_number < 1 or file_week_number > 53:
+                        processed_entries.append({
+                            'queue_index': index - 1,
+                            'client_id': client_reference,
+                            'original_filename': original_filename,
+                            'status': 'failed',
+                            'message': f'周序号 {file_week_number} 无效,必须在1-53之间'
+                        })
+                        continue
+                except ValueError:
+                    processed_entries.append({
+                        'queue_index': index - 1,
+                        'client_id': client_reference,
+                        'original_filename': original_filename,
+                        'status': 'failed',
+                        'message': f'周序号格式错误: {week_numbers_list[index - 1]}'
+                    })
+                    continue
             if not original_filename.lower().endswith(('.xlsx', '.xls')):
                 processed_entries.append({
                     'queue_index': index - 1,
@@ -644,7 +726,8 @@ def upload_file():
             upload_path = os.path.join(UPLOAD_FOLDER, upload_filename)
             file_storage.save(upload_path)
 
-            result = processor.process_excel_to_csv(upload_path, None, original_filename, user_week_number)
+            # 使用该文件特定的周序号
+            result = processor.process_excel_to_csv(upload_path, None, original_filename, file_week_number)
 
             entry = {
                 'queue_index': index - 1,
@@ -674,13 +757,21 @@ def upload_file():
         failed_count = len(processed_entries) - success_count
         overall_success = success_count > 0 and failed_count == 0
 
-        resolved_week_number = user_week_number
-        if resolved_week_number is None:
-            for entry in processed_entries:
-                detected_week = entry.get('week_number')
-                if detected_week:
-                    resolved_week_number = detected_week
-                    break
+        # 收集所有使用的周序号(用于汇总显示)
+        week_numbers_used = set()
+        for entry in processed_entries:
+            week_num = entry.get('week_number')
+            if week_num:
+                week_numbers_used.add(week_num)
+
+        # 如果所有文件使用同一个周序号,显示该周序号;否则显示范围
+        summary_week_display = None
+        if week_numbers_used:
+            sorted_weeks = sorted(week_numbers_used)
+            if len(sorted_weeks) == 1:
+                summary_week_display = sorted_weeks[0]
+            else:
+                summary_week_display = f"{min(sorted_weeks)}-{max(sorted_weeks)}"
 
         response_payload = {
             'success': overall_success,
@@ -692,7 +783,8 @@ def upload_file():
                 'failed': failed_count,
                 'total_row_count': total_rows,
                 'years': sorted({int(y) for y in aggregated_years if y is not None and int(y) > 0}),
-                'week_number': resolved_week_number,
+                'week_number': summary_week_display,
+                'week_numbers_used': sorted(week_numbers_used),
                 'generated_at': timestamp
             }
         }
@@ -716,6 +808,14 @@ def download_file(filename):
         logger.error(f"下载文件出错: {str(e)}")
         return jsonify({'error': '下载失败'}), 500
 
+# Vercel Serverless适配
 if __name__ == '__main__':
+    # 本地开发环境
     port = int(os.environ.get('PORT', 5001))
-    app.run(debug=True, host='0.0.0.0', port=port)
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    app.run(debug=debug_mode, host='0.0.0.0', port=port)
+else:
+    # Vercel生产环境
+    # 确保上传和输出目录存在
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)

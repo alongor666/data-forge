@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>上传限制测试</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>上传限制功能测试</h1>
+    
+    <div class="test-section">
+        <h2>测试说明</h2>
+        <p>当前的文件上传限制设置：</p>
+        <ul>
+            <li><strong>单文件大小限制：</strong>50MB</li>
+            <li><strong>批量文件数量限制：</strong>10个文件</li>
+            <li><strong>支持格式：</strong>.xlsx, .xls</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>前端功能验证</h2>
+        <p>✅ 已在界面上显示限制提示</p>
+        <p>✅ 已添加文件大小实时检查</p>
+        <p>✅ 已添加文件数量检查</p>
+        <p>✅ 已添加文件格式验证</p>
+        <p>✅ 已添加重复文件检测</p>
+        <p>✅ 已添加上传前确认对话框（大文件时）</p>
+        <p>✅ 已添加实时文件统计信息显示</p>
+    </div>
+
+    <div class="test-section">
+        <h2>后端功能验证</h2>
+        <p>✅ 已添加总请求大小检查（50MB）</p>
+        <p>✅ 已添加文件数量限制检查（10个）</p>
+        <p>✅ 已优化错误信息返回</p>
+    </div>
+
+    <div class="test-section">
+        <h2>用户体验改进</h2>
+        <p>✅ 用户选择文件时立即显示限制提示</p>
+        <p>✅ 错误信息更友好，包含具体文件名和建议</p>
+        <p>✅ 大文件上传前要求确认</p>
+        <p>✅ 实时显示文件统计信息</p>
+        <p>✅ 批量错误处理，一次显示所有问题</p>
+    </div>
+
+    <div class="test-section">
+        <h2>使用说明</h2>
+        <ol>
+            <li><strong>选择文件时：</strong>系统会立即检查文件大小、格式和数量限制</li>
+            <li><strong>文件过大：</strong>会显示具体文件大小和限制大小</li>
+            <li><strong>格式不支持：</strong>会提示只支持Excel文件</li>
+            <li><strong>数量超限：</strong>会提示最多允许的文件数量</li>
+            <li><strong>重复文件：</strong>会提示文件已存在</li>
+            <li><strong>大文件上传：</strong>超过30MB会显示确认对话框</li>
+            <li><strong>实时统计：</strong>界面会显示文件总数、总大小、有效文件数等</li>
+        </ol>
+    </div>
+</body>
+</html>

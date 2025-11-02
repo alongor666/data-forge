@@ -151,7 +151,7 @@ body {
 }
 
 .layout {
-  max-width: 1080px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 24px 96px;
   display: flex;
@@ -261,10 +261,9 @@ body {
 }
 
 .upload-grid {
-  display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(320px, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: 32px;
-  align-items: stretch;
 }
 
 .dropzone {
@@ -319,6 +318,24 @@ body {
   gap: 12px;
   flex-wrap: wrap;
   justify-content: center;
+  margin-bottom: 16px;
+}
+
+.upload-limits {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.limit-item {
+  padding: 4px 8px;
+  background: var(--bg-2);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--panel-border);
 }
 
 .upload-meta {
@@ -349,6 +366,17 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.16em;
   color: var(--text-muted);
+}
+
+.meta-block--required .meta-block__eyebrow {
+  color: var(--accent);
+}
+
+.required-mark {
+  color: var(--error);
+  margin-left: 4px;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .meta-block__field input {
@@ -423,55 +451,244 @@ body {
   border-color: rgba(255, 255, 255, 0.3);
 }
 
+/* 文件队列 - 表格样式 */
 .file-queue {
   min-height: 120px;
   border-radius: var(--radius-md);
-  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.02);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  overflow: hidden;
   font-size: 14px;
 }
 
 .file-queue.is-empty {
-  color: var(--text-muted);
+  display: flex;
   align-items: center;
   justify-content: center;
+  padding: 48px 24px;
+  color: var(--text-muted);
   text-align: center;
 }
 
-.file-queue__item {
+/* 表格容器 */
+.file-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* 表头 */
+.file-table__header {
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.file-table__header-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
+  grid-template-columns: minmax(200px, 1fr) 70px 90px 100px 120px 60px;
+  gap: 12px;
+  padding: 14px 20px;
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.file-table__header-cell {
+  display: flex;
   align-items: center;
-  padding: 12px 14px;
-  border-radius: var(--radius-sm);
+}
+
+.file-table__header-cell--center {
+  justify-content: center;
+}
+
+.file-table__header-cell--right {
+  justify-content: flex-end;
+}
+
+/* 表体 */
+.file-table__body {
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* 表格行 */
+.file-table__row {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr) 70px 90px 100px 120px 60px;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: all 0.2s ease;
+  align-items: center;
+}
+
+.file-table__row:hover {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.file-row__meta {
+.file-table__row:last-child {
+  border-bottom: none;
+}
+
+/* 表格单元格 */
+.file-table__cell {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  overflow: hidden;
 }
 
-.file-row__name {
-  font-weight: 600;
-  word-break: break-all;
+.file-table__cell--center {
+  justify-content: center;
 }
 
-.file-row__details {
+.file-table__cell--right {
+  justify-content: flex-end;
+}
+
+/* 文件名单元格 */
+.file-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.95);
+  overflow: hidden;
+}
+
+.file-name__icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.file-name__text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 格式单元格 */
+.file-format {
   color: var(--text-muted);
   font-size: 13px;
+  font-family: 'Courier New', monospace;
 }
 
-.file-row__actions {
+/* 大小单元格 */
+.file-size {
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* 状态单元格 */
+.file-status {
+  /* 状态标签样式继续使用 .status-pill */
+}
+
+/* 周序号输入单元格 */
+.week-input-wrapper {
   display: flex;
-  gap: 10px;
   align-items: center;
+  gap: 8px;
+  justify-content: center;
+}
+
+.week-number-input {
+  width: 70px;
+  padding: 6px 10px;
+  font-size: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  text-align: center;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.week-number-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15);
+}
+
+.week-number-input:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.week-auto-hint {
+  font-size: 10px;
+  color: #4CAF50;
+  opacity: 0.8;
+}
+
+/* 操作单元格 */
+.file-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 表格响应式布局 */
+@media (max-width: 1024px) {
+  .file-table__header-row,
+  .file-table__row {
+    grid-template-columns: 35% 7% 10% 15% 20% 13%;
+    gap: 12px;
+    padding: 12px 16px;
+  }
+
+  .file-name {
+    font-size: 13px;
+  }
+
+  .week-number-input {
+    width: 60px;
+    padding: 5px 8px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 768px) {
+  .file-table__header-cell:nth-child(2),
+  .file-table__cell:nth-child(2) {
+    display: none; /* 隐藏格式列 */
+  }
+
+  .file-table__header-row,
+  .file-table__row {
+    grid-template-columns: 40% 12% 18% 20% 10%;
+    gap: 10px;
+    padding: 10px 12px;
+  }
+}
+
+/* 自定义滚动条样式 */
+.file-table__body::-webkit-scrollbar,
+.file-queue::-webkit-scrollbar {
+  width: 8px;
+}
+
+.file-table__body::-webkit-scrollbar-track,
+.file-queue::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.file-table__body::-webkit-scrollbar-thumb,
+.file-queue::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.file-table__body::-webkit-scrollbar-thumb:hover,
+.file-queue::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .btn-remove {
