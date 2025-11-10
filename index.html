@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Database预处理 - 静态版</title>
+    <meta name="description" content="Database预处理：数据预处理工作台，极速上传、精准清洗、可信输出。" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@400;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="static/styles.css" />
+
+    <!-- ExcelJS CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+    <!-- JSZip for batch download -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <!-- FileSaver for download -->
+    <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  </head>
+  <body>
+    <div class="bg-canvas" aria-hidden="true">
+      <div class="orb orb-one"></div>
+      <div class="orb orb-two"></div>
+      <div class="orb orb-three"></div>
+    </div>
+
+    <header class="hero">
+      <div class="hero__content">
+        <h1 class="hero__title">Database预处理 <span style="font-size: 0.5em; color: var(--accent);">静态版</span></h1>
+        <div class="hero__stats">
+          <div class="stat">
+            <span class="stat__value">≤ 10 MB</span>
+            <span class="stat__label">浏览器本地处理</span>
+          </div>
+          <div class="stat">
+            <span class="stat__value">27 项</span>
+            <span class="stat__label">字段规范保障</span>
+          </div>
+          <div class="stat">
+            <span class="stat__value">多年度</span>
+            <span class="stat__label">智能拆分导出</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel--primary" id="panelUpload">
+        <div class="panel__header">
+          <div>
+            <span class="panel__eyebrow">步骤一</span>
+            <h2 class="panel__title">上传保单数据文件</h2>
+            <p class="panel__description">支持批量上传多份 Excel，系统自动识别年度、周次与字段标准，保障输出与模板一致。<br/>
+            <strong style="color: var(--warning);">静态版本：建议单文件 ≤ 10MB，大文件请使用<a href="https://data-forge-xuechenglong.vercel.app" style="color: var(--accent);">服务器版本</a></strong></p>
+          </div>
+          <div class="badge badge--glow">纯前端处理</div>
+        </div>
+
+        <div class="panel__body">
+          <div class="upload-grid">
+            <div class="dropzone" id="dropZone">
+              <input type="file" id="fileInput" accept=".xlsx,.xls" multiple hidden />
+              <div class="dropzone__content">
+                <div class="dropzone__icon">⬆️</div>
+                <h3 class="dropzone__title">拖放文件到此区域，或点击上传</h3>
+                <p class="dropzone__subtitle">支持 .xlsx / .xls，自动校验字段、自动分年度导出</p>
+                <div class="dropzone__actions">
+                  <button type="button" class="btn btn--primary" id="triggerFileInput">选择文件</button>
+                  <button type="button" class="btn btn--ghost" id="sampleLink">查看模板规范</button>
+                </div>
+                <div class="upload-limits">
+                  <div class="limit-item">推荐 ≤ 10MB</div>
+                  <div class="limit-item">批量 ≤ 5个文件</div>
+                  <div class="limit-item">格式：.xlsx / .xls</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="upload-meta">
+              <div class="meta-block">
+                <span class="meta-block__eyebrow">文件队列 <span style="font-size: 0.85em; opacity: 0.7;">(为每个文件设置周序号)</span></span>
+                <div class="file-stats" id="fileStats" style="margin-top: 8px;"></div>
+                <div class="meta-block meta-block--inline" style="margin-top: 12px;">
+                  <button type="button" class="btn btn--primary" id="actionProcess" disabled>开始处理</button>
+                  <button type="button" class="btn btn--ghost" id="actionClear" disabled>清空列表</button>
+                </div>
+                <div id="fileQueue" class="file-queue is-empty" role="list" style="margin-top: 16px;">尚未选择文件</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel panel--result is-hidden" id="resultPanel">
+        <div class="panel__header">
+          <div>
+            <span class="panel__eyebrow">步骤二</span>
+            <h2 class="panel__title">实时处理追踪</h2>
+            <p class="panel__description">处理完成后，即刻下载年度拆分的高质量 CSV，或一键打包成 ZIP。</p>
+          </div>
+          <div class="badge badge--accent" id="resultBadge">等待上传</div>
+        </div>
+        <div class="panel__body">
+          <div id="sessionSummary" class="session-summary" aria-live="polite"></div>
+          <div id="fileResults" class="result-grid"></div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer">
+      <div class="footer__content">
+        <span>© 2025 Database预处理 - 静态版 (纯前端处理)</span>
+        <a href="https://github.com/yourusername/data-forge" class="footer__link">查看源代码</a>
+      </div>
+    </footer>
+
+    <!-- 加载数据处理器 -->
+    <script src="processor.js"></script>
+    <!-- 加载主应用逻辑 -->
+    <script src="app.js"></script>
+  </body>
+</html>
