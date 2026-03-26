@@ -281,17 +281,20 @@ class PolarsDataProcessor:
                 pl.col('matured_premium_yuan').alias('commercial_premium_before_discount_yuan')
             )
 
-        # 4. 保单数量 = 满期保费(元) / 单均保费
+        # 4. 保单件数 = 签单保费(元) / 单均保费（单均保费为0时件数为0）
         if 'average_premium' in df.columns:
             df = df.with_columns(
-                (pl.col('matured_premium_yuan') /
-                 pl.when(pl.col('average_premium').fill_null(1.0) == 0)
-                 .then(pl.lit(1.0))
-                 .otherwise(pl.col('average_premium').fill_null(1.0))
-                ).round(0).cast(pl.Int64).alias('policy_count')
+                pl.when(pl.col('average_premium').fill_null(0.0) > 0)
+                .then(
+                    (pl.col('signed_premium_yuan') / pl.col('average_premium').fill_null(0.0))
+                    .round(0)
+                )
+                .otherwise(pl.lit(0))
+                .cast(pl.Int64)
+                .alias('policy_count')
             )
         else:
-            df = df.with_columns(pl.lit(1).alias('policy_count'))
+            df = df.with_columns(pl.lit(0).alias('policy_count'))
 
         # 5. 出险案件数
         if 'claim_case_count' in df.columns:

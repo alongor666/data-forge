@@ -151,7 +151,7 @@ Excel上传 → standardize_fields() → calculate_absolute_fields()
 1. `signed_premium_yuan`: 跟单保费(万) × 10,000
 2. `matured_premium_yuan`: 满期净保费(万) × 10,000
 3. `commercial_premium_before_discount_yuan`: 满期保费 ÷ 商业险自主系数
-4. `policy_count`: 满期保费 ÷ 单均保费 (取整)
+4. `policy_count`: 签单保费 ÷ 单均保费 (取整，单均保费为0时件数为0)
 5. `claim_case_count`: 直接使用案件数字段
 6. `reported_claim_payment_yuan`: 总赔款(万) × 10,000
 7. `expense_amount_yuan`: 签单保费 × 费用率

@@ -313,13 +313,17 @@ class DataProcessor:
         else:
             result_df['commercial_premium_before_discount_yuan'] = result_df['matured_premium_yuan']
         
-        # 4. 保单数量 = 满期保费(元) / 单均保费（避免除零）
+        # 4. 保单件数 = 签单保费(元) / 单均保费（单均保费为0时件数为0）
         if 'average_premium' in df.columns:
-            avg_premium = pd.to_numeric(df['average_premium'], errors='coerce').fillna(1.0)
-            avg_premium = avg_premium.replace(0, 1.0)  # 避免除零
-            result_df['policy_count'] = (result_df['matured_premium_yuan'] / avg_premium).round().astype(int)
+            avg_premium = pd.to_numeric(df['average_premium'], errors='coerce').fillna(0.0)
+            result_df['policy_count'] = 0
+            valid_mask = avg_premium > 0
+            result_df.loc[valid_mask, 'policy_count'] = (
+                result_df.loc[valid_mask, 'signed_premium_yuan'] / avg_premium[valid_mask]
+            ).round().astype(int)
+            result_df['policy_count'] = result_df['policy_count'].clip(lower=0)
         else:
-            result_df['policy_count'] = 1
+            result_df['policy_count'] = 0
         
         # 5. 出险案件数 = 案件数
         if 'claim_case_count' in df.columns:
