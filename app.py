@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 APP_NAME = "Database预处理"
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB限制
+app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB限制
 
 # 目录配置 - 适配Vercel的临时目录
 IS_VERCEL = os.environ.get('VERCEL_ENV') == 'production'
@@ -456,7 +456,7 @@ class DataProcessor:
                     # 假设当前年份
                     years = [datetime.now().year]
                 else:
-                    years = [2024]  # 默认年份
+                    years = [datetime.now().year]
             
             # 获取周数
             if 'week_number' in df.columns:
@@ -483,12 +483,40 @@ class DataProcessor:
             # 返回默认文件名
             return f"保单第40周变动成本明细表.csv"
 
+    def _optimize_dtypes(self, df):
+        """优化DataFrame内存占用，将高内存类型降级为低内存类型"""
+        for col in df.select_dtypes(include=['float64']).columns:
+            df[col] = pd.to_numeric(df[col], downcast='float')
+        for col in df.select_dtypes(include=['int64']).columns:
+            df[col] = pd.to_numeric(df[col], downcast='integer')
+        for col in df.select_dtypes(include=['object']).columns:
+            nunique = df[col].nunique()
+            if nunique / max(len(df), 1) < 0.5:
+                df[col] = df[col].astype('category')
+        return df
+
     def process_excel_to_csv(self, excel_path, output_path=None, original_filename=None, user_week_number=None):
-        """处理Excel文件转换为CSV，按年度分组输出多个文件"""
+        """处理Excel文件转换为CSV，按年度分组输出多个文件，支持大文件分块读取"""
         try:
-            # 读取Excel文件
-            logger.info(f"读取Excel文件: {excel_path}")
-            df = pd.read_excel(excel_path)
+            # 读取Excel文件 - 根据文件大小选择策略
+            file_size_mb = os.path.getsize(excel_path) / (1024 * 1024)
+            logger.info(f"读取Excel文件: {excel_path} ({file_size_mb:.1f}MB)")
+
+            if file_size_mb > 20:
+                # 大文件：分sheet读取并优化内存
+                logger.info("大文件模式：启用内存优化")
+                xl = pd.ExcelFile(excel_path, engine='openpyxl')
+                chunks = []
+                for sheet_name in xl.sheet_names:
+                    sheet_df = xl.parse(sheet_name)
+                    sheet_df = self._optimize_dtypes(sheet_df)
+                    chunks.append(sheet_df)
+                    logger.info(f"  读取sheet '{sheet_name}': {len(sheet_df)} 行")
+                df = pd.concat(chunks, ignore_index=True) if len(chunks) > 1 else chunks[0]
+                del chunks
+            else:
+                df = pd.read_excel(excel_path)
+
             logger.info(f"原始数据: {len(df)} 行, {len(df.columns)} 列")
             
             # 标准化字段，传递用户指定的周序号
@@ -558,8 +586,9 @@ class DataProcessor:
                 year_output_path = os.path.join(OUTPUT_FOLDER, output_filename)
                 
                 # 验证字段数量
-                if len(year_data.columns) != 26:
-                    logger.warning(f"{year}年度字段数量不符合规范: 期望26个，实际{len(year_data.columns)}个")
+                expected_field_count = len(self.required_fields)
+                if len(year_data.columns) != expected_field_count:
+                    logger.warning(f"{year}年度字段数量不符合规范: 期望{expected_field_count}个，实际{len(year_data.columns)}个")
                 
                 # 保存CSV文件
                 year_data.to_csv(year_output_path, index=False, encoding='utf-8-sig')
@@ -627,10 +656,11 @@ def upload_file():
     try:
         # 检查请求大小
         content_length = request.content_length
+        max_mb = app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
         if content_length and content_length > app.config['MAX_CONTENT_LENGTH']:
             return jsonify({
-                'success': False, 
-                'message': f'上传的总文件大小超限！最大支持 {app.config["MAX_CONTENT_LENGTH"] // (1024*1024)}MB，当前请求大小为 {content_length // (1024*1024)}MB'
+                'success': False,
+                'message': f'上传的总文件大小超限！最大支持 {max_mb}MB，当前请求大小为 {content_length // (1024*1024)}MB'
             }), 413
 
         incoming_files: List = []
