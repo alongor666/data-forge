@@ -7,6 +7,7 @@
 
 import os
 import re
+import gzip
 import zipfile
 import pandas as pd
 import numpy as np
@@ -774,6 +775,19 @@ def upload_file():
             upload_filename = f"{timestamp}_{index:02d}_{safe_name}"
             upload_path = os.path.join(UPLOAD_FOLDER, upload_filename)
             file_storage.save(upload_path)
+
+            # 如果前端发送了 gzip 压缩文件，自动解压
+            is_compressed = request.form.get('compressed') == 'gzip'
+            if is_compressed and original_filename.endswith('.gz'):
+                original_filename = original_filename[:-3]  # 去掉 .gz 后缀
+                decompressed_path = upload_path.rsplit('.gz', 1)[0] if upload_path.endswith('.gz') else upload_path + '_decompressed'
+                with gzip.open(upload_path, 'rb') as f_in:
+                    with open(decompressed_path, 'wb') as f_out:
+                        while chunk := f_in.read(8192):
+                            f_out.write(chunk)
+                os.remove(upload_path)
+                upload_path = decompressed_path
+                logger.info(f"已解压gzip文件: {original_filename}")
 
             # 使用该文件特定的周序号
             result = processor.process_excel_to_csv(upload_path, None, original_filename, file_week_number)

@@ -789,13 +789,29 @@
           placeholderCard.appendChild(placeholderLabel);
           sessionSummary.appendChild(placeholderCard);
 
+          // 压缩大文件以绕过 Vercel 4.5MB body 限制
+          async function compressFile(file) {
+            if (typeof CompressionStream === 'undefined' || file.size < 4 * 1024 * 1024) {
+              return file; // 浏览器不支持或文件 <4MB 无需压缩
+            }
+            const stream = file.stream().pipeThrough(new CompressionStream('gzip'));
+            const blob = await new Response(stream).blob();
+            return new File([blob], file.name + '.gz', { type: 'application/gzip' });
+          }
+
           const formData = new FormData();
-          processable.forEach(entry => {
-            formData.append('file', entry.file);
+          let hasCompressed = false;
+          for (const entry of processable) {
+            const compressed = await compressFile(entry.file);
+            const wasCompressed = compressed.name !== entry.file.name;
+            if (wasCompressed) hasCompressed = true;
+            formData.append('file', compressed);
             formData.append('client_ids', entry.id);
-            // 为每个文件单独发送周序号
             formData.append('week_numbers', entry.weekNumber);
-          });
+          }
+          if (hasCompressed) {
+            formData.append('compressed', 'gzip');
+          }
 
           try {
             const response = await fetch('/upload', {
