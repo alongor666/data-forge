@@ -25,7 +25,9 @@ logger = logging.getLogger(__name__)
 APP_NAME = "Database预处理"
 
 app = Flask(__name__)
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100MB限制
+# 不设置 MAX_CONTENT_LENGTH，避免 Werkzeug 在路由之前拦截返回 413
+# 改为在 upload_file() 路由内手动检查文件大小
+MAX_UPLOAD_SIZE = 100 * 1024 * 1024  # 100MB
 
 # 目录配置 - 适配Vercel的临时目录
 IS_VERCEL = os.environ.get('VERCEL_ENV') == 'production'
@@ -45,6 +47,16 @@ os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 logger.info(f"运行环境: {'Vercel Serverless' if IS_VERCEL else '本地开发'}")
 logger.info(f"上传目录: {UPLOAD_FOLDER}")
 logger.info(f"输出目录: {OUTPUT_FOLDER}")
+
+
+@app.errorhandler(413)
+def handle_413(error):
+    """全局413处理：返回JSON而非HTML错误页"""
+    max_mb = MAX_UPLOAD_SIZE // (1024 * 1024)
+    return jsonify({
+        'success': False,
+        'message': f'文件过大！最大支持 {max_mb}MB，请减小文件后重试'
+    }), 413
 
 
 @app.context_processor
@@ -670,10 +682,10 @@ def health_check():
 def upload_file():
     """文件上传和处理"""
     try:
-        # 检查请求大小
+        # 手动检查请求大小（不依赖 Werkzeug 自动拦截）
         content_length = request.content_length
-        max_mb = app.config['MAX_CONTENT_LENGTH'] // (1024 * 1024)
-        if content_length and content_length > app.config['MAX_CONTENT_LENGTH']:
+        max_mb = MAX_UPLOAD_SIZE // (1024 * 1024)
+        if content_length and content_length > MAX_UPLOAD_SIZE:
             return jsonify({
                 'success': False,
                 'message': f'上传的总文件大小超限！最大支持 {max_mb}MB，当前请求大小为 {content_length // (1024*1024)}MB'
