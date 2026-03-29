@@ -110,6 +110,11 @@
     </footer>
 
     <script>
+      // 如果用 127.0.0.1 访问，自动切换到 localhost 以绕过系统代理
+      if (location.hostname === '127.0.0.1') {
+        location.replace(location.href.replace('127.0.0.1', 'localhost'));
+      }
+
       document.addEventListener('DOMContentLoaded', () => {
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -804,6 +809,9 @@
             });
 
             if (!response.ok) {
+              if (response.status === 413) {
+                throw new Error('文件过大，服务器拒绝接收。如使用代理软件，请将 localhost 加入直连列表');
+              }
               throw new Error(`服务器返回状态 ${response.status}`);
             }
 
