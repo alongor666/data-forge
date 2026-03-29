@@ -30,8 +30,8 @@
             <span class="stat__label">字段规范保障</span>
           </div>
           <div class="stat">
-            <span class="stat__value">多年度</span>
-            <span class="stat__label">智能拆分导出</span>
+            <span class="stat__value">CSV+Parquet</span>
+            <span class="stat__label">双格式智能导出</span>
           </div>
         </div>
       </div>
@@ -43,7 +43,7 @@
           <div>
             <span class="panel__eyebrow">步骤一</span>
             <h2 class="panel__title">上传保单数据文件</h2>
-            <p class="panel__description">支持批量上传多份 Excel，系统自动识别年度、周次与字段标准，保障输出与模板一致。</p>
+            <p class="panel__description">支持批量上传多份 Excel，系统自动识别年度、周次与字段标准，输出 CSV + Parquet 双格式。</p>
           </div>
           <div class="badge badge--glow">智能质检</div>
         </div>
@@ -88,7 +88,7 @@
           <div>
             <span class="panel__eyebrow">步骤二</span>
             <h2 class="panel__title">实时处理追踪</h2>
-            <p class="panel__description">处理完成后，即刻下载年度拆分的高质量 CSV，或一键打包成 ZIP。</p>
+            <p class="panel__description">处理完成后，即刻下载年度拆分的 CSV / Parquet，或一键打包成 ZIP。</p>
           </div>
           <div class="badge badge--accent" id="resultBadge">等待上传</div>
         </div>
@@ -495,6 +495,7 @@
               outputList.className = 'output-list';
 
               file.outputs.forEach(output => {
+                // CSV 下载链接
                 const anchor = document.createElement('a');
                 anchor.className = 'output-link';
                 anchor.href = output.download_url || '#';
@@ -507,6 +508,22 @@
                 anchor.appendChild(span);
 
                 outputList.appendChild(anchor);
+
+                // Parquet 下载链接
+                if (output.parquet_download_url) {
+                  const pqAnchor = document.createElement('a');
+                  pqAnchor.className = 'output-link output-link--parquet';
+                  pqAnchor.href = output.parquet_download_url;
+                  pqAnchor.textContent = output.parquet_filename;
+                  pqAnchor.setAttribute('download', output.parquet_filename);
+
+                  const pqSpan = document.createElement('span');
+                  pqSpan.className = 'output-meta';
+                  pqSpan.textContent = 'Parquet';
+                  pqAnchor.appendChild(pqSpan);
+
+                  outputList.appendChild(pqAnchor);
+                }
               });
 
               card.appendChild(outputList);

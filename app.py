@@ -415,11 +415,17 @@ class DataProcessor:
                     csv_filename = file_info['filename']
                     
                     if os.path.exists(csv_path):
-                        # 将CSV文件添加到ZIP中
                         zipf.write(csv_path, csv_filename)
                         logger.info(f"已添加文件到ZIP: {csv_filename}")
                     else:
                         logger.warning(f"CSV文件不存在: {csv_path}")
+
+                    # 同时打包Parquet文件
+                    parquet_path = file_info.get('parquet_path')
+                    parquet_filename = file_info.get('parquet_filename')
+                    if parquet_path and os.path.exists(parquet_path):
+                        zipf.write(parquet_path, parquet_filename)
+                        logger.info(f"已添加文件到ZIP: {parquet_filename}")
             
             logger.info(f"ZIP文件创建成功: {zip_path}")
             
@@ -593,13 +599,22 @@ class DataProcessor:
                 # 保存CSV文件
                 year_data.to_csv(year_output_path, index=False, encoding='utf-8-sig')
                 logger.info(f"{year}年度CSV文件已保存: {year_output_path} ({len(year_data)}行)")
-                
+
+                # 保存Parquet文件
+                parquet_filename = f"{year}保单第{week_number:02d}周变动成本明细表.parquet"
+                parquet_output_path = os.path.join(OUTPUT_FOLDER, parquet_filename)
+                year_data.to_parquet(parquet_output_path, index=False, engine='pyarrow')
+                logger.info(f"{year}年度Parquet文件已保存: {parquet_output_path} ({len(year_data)}行)")
+
                 output_files.append({
                     'year': year,
                     'filename': output_filename,
                     'path': year_output_path,
                     'row_count': len(year_data),
-                    'download_url': f'/download/{output_filename}'
+                    'download_url': f'/download/{output_filename}',
+                    'parquet_filename': parquet_filename,
+                    'parquet_path': parquet_output_path,
+                    'parquet_download_url': f'/download/{parquet_filename}'
                 })
                 total_rows += len(year_data)
             
@@ -615,7 +630,7 @@ class DataProcessor:
 
             return {
                 'success': True,
-                'message': f'成功处理 {total_rows} 行数据，按年度输出 {len(output_files)} 个文件',
+                'message': f'成功处理 {total_rows} 行数据，按年度输出 {len(output_files)} 个文件（CSV + Parquet 双格式）',
                 'output_files': output_files,
                 'field_count': len(df_final.columns),
                 'total_row_count': total_rows,
